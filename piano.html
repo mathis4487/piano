@@ -213,6 +213,37 @@ label.btn{position:relative;display:inline-block;text-align:center}
 @media (orientation:portrait){#cv{height:clamp(260px,50vh,560px)}}
 @media (pointer:coarse){.btn{min-height:44px}.tg{min-height:38px}.opt{padding:11px 12px}.pr,.pi{min-height:48px}}
 @media (prefers-reduced-motion:reduce){.bar>span,.vel>span{transition:none}}
+
+.tabs{display:flex;background:var(--surface);border-top:1px solid var(--line);padding:4px 6px calc(4px + env(safe-area-inset-bottom,0px));gap:2px}
+.tabs button{flex:1;border:0;background:transparent;border-radius:12px;padding:5px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:.7rem;font-weight:700;color:var(--muted);min-height:54px}
+.tabs button i{font-style:normal;font-size:1.4rem;line-height:1.1}
+.tabs button[aria-current=page]{color:var(--accent);background:var(--accent-soft)}
+.card.hero{background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 50%,#9B5CF6));color:var(--accent-ink);border:0;gap:14px}
+.hero .eyebrow{color:inherit;opacity:.85}
+.hero h2{font-size:1.7rem}
+.hchips{display:flex;gap:8px;flex-wrap:wrap}
+.hchips span{background:color-mix(in srgb,var(--accent-ink) 16%,transparent);border-radius:99px;padding:5px 12px;font-weight:700;font-size:.85rem}
+.hero .bar{background:color-mix(in srgb,var(--accent-ink) 22%,transparent)}
+.hero .bar>span{background:var(--accent-ink)}
+.btn.play{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:800;font-size:1.2rem;padding:17px 18px;border-radius:16px;width:100%;box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 70%,#000)}
+.hero .btn.play{background:var(--accent-ink);border-color:var(--accent-ink);color:var(--accent);box-shadow:0 4px 0 color-mix(in srgb,var(--accent-ink) 55%,transparent)}
+.btn.play:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.025)}}
+.btn.play.pulse{animation:pulse 2.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.btn.play.pulse{animation:none}}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin:0 -2px}
+.chips::-webkit-scrollbar{display:none}
+.chips .btn{flex:none;white-space:nowrap}
+.srch{width:100%;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:1rem}
+details.dd2{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--field)}
+details.dd2>summary{cursor:pointer;font-weight:600}
+details.dd2[open]>summary{margin-bottom:10px}
+.one{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-weight:600;color:var(--muted)}
+.btn.big.play{font-size:1.25rem}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}
+.stars.big{display:inline-block;animation:pop .6s ease-out}
+@media (prefers-reduced-motion:reduce){.stars.big{animation:none}}
 #toast{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:80;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 14px;font-size:.9rem;box-shadow:0 6px 24px rgba(0,0,0,.3)}
 </style>
 
@@ -233,6 +264,13 @@ label.btn{position:relative;display:inline-block;text-align:center}
     <section class="view" id="v-progress" hidden></section>
   </div>
 </main>
+
+<nav class="tabs" id="tabs" aria-label="Navigation principale" hidden>
+  <button data-tab="accueil" aria-current="page"><i>🏠</i>Accueil</button>
+  <button data-tab="morceaux"><i>🎵</i>Morceaux</button>
+  <button data-tab="progress"><i>📈</i>Évolution</button>
+  <button data-tab="plus"><i>⚙️</i>Plus</button>
+</nav>
 
 <footer class="dock" id="dock" hidden><canvas id="cv"></canvas></footer>
 
@@ -336,13 +374,16 @@ function splitHands(p,evs){
     const h=med<58?'L':'R';
     return {mode:h,ev:evs.map(e=>h==='R'?{R:asc(e),L:[]}:{R:[],L:asc(e)})};
   }
-  let prev='R';
+  let lastR=67,lastL=48;
   const ev=evs.map(e=>{
     const s=asc(e),k=cut(s);
-    if(k>=0)return {L:s.slice(0,k+1),R:s.slice(k+1)};
-    const c=(s[0]+s[s.length-1])/2,h=c>=63?'R':c<=55?'L':prev;
-    prev=h;
-    return h==='R'?{R:s,L:[]}:{R:[],L:s};
+    if(k>=0){const L=s.slice(0,k+1),R=s.slice(k+1);lastL=L[L.length-1];lastR=R[0];return {L,R};}
+    const n=s.length,c=(s[0]+s[n-1])/2;
+    let h;
+    if(n===2&&s[0]<=55&&s[1]>=59&&s[1]-s[0]<=12)return (lastL=s[0],lastR=s[1],{L:[s[0]],R:[s[1]]});
+    if(c>=63)h='R';else if(c<=55)h='L';else h=Math.abs(c-lastR)<=Math.abs(c-lastL)?'R':'L';
+    if(h==='R'){lastR=s[0];return {R:s,L:[]};}
+    lastL=s[n-1];return {R:[],L:s};
   });
   const usesL=ev.some(x=>x.L.length),usesR=ev.some(x=>x.R.length);
   return {mode:usesL&&usesR?'RL':usesL?'L':'R',ev};
@@ -446,7 +487,7 @@ const PIECES=QUESTS.concat([
   dsl:'C4@p D4@p E4@mp F4@mp G4@mf A4@mf B4@f C5:2@f B4@mf A4@mf G4@mp F4@mp E4@p D4@p C4:2@pp'},
  {id:'accords',title:'Les accords',bpm:50,desc:'Do, Fa, Sol, Do : trois notes à la fois.',
   dsl:'C4+E4+G4:4 F4+A4+C5:4 G3+B3+D4:4 C4+E4+G4:4 C4+E4+G4:2 F4+A4+C5:2 G3+B3+D4:2 C4+E4+G4:4'},
- {id:'deux',title:'Les deux mains',bpm:72,desc:'Au clair de la lune avec la basse à gauche.',
+ {id:'deux',h:2,title:'Les deux mains',bpm:72,desc:'Au clair de la lune avec la basse à gauche.',
   dsl:'C3+C4 C4 G3+C4 D4 C3+E4:2 G3+D4:2 C3+C4 E4 G3+D4 D4 C3+C4:4 C3+C4 C4 G3+C4 D4 C3+E4:2 G3+D4:2 C3+C4 E4 G3+D4 D4 C3+C4:4'},
  {id:'elise',title:'Pour Élise, début',bpm:66,desc:'Le célèbre motif, une octave plus bas.',
   dsl:'E4:.5 D#4:.5 E4:.5 D#4:.5 E4:.5 B3:.5 D4:.5 C4:.5 A3:1.5 R:.5 C4:.5 E4:.5 A3:.5 B3:1.5 R:.5 E4:.5 G#4:.5 B3:.5 C4:1.5'}
@@ -729,11 +770,30 @@ const EXTRA5=[{"id":"an5-01-reve-de-grand-larg","cat":"anime","lvl":2,"title":"R
 {"id":"jw5-08-traque-dans-la-con","cat":"jeux","lvl":4,"title":"Traque dans la contagion","bpm":50,"desc":"Esprit Warframe, morceau original : couloirs étroits, on retient son souffle — mode phrygien.","h":2,"dsl":"F#2+C#3+F#3+A4+C#5+F#5:1@p F#4+A4+C#5:0.5 F#2+C#3+F#3:0.5 A4:0.5 C#3+F#3+E4:0.5 F#4:1 B2+F#3+B3+D4+F#4:1 D4:0.5 B2+F#3+B3:0.5 D4:0.5 F#3+B3+E4:0.5 B3+D4+F#4:1 E2+B2+E3+B3+E4+G4:1.5 E2+B2+E3+D4:0.5 E4:0.5 B2+E3:0.5 E4:1 A2+E3+A3+E4:1 D4:0.5 A2+E3+A3+D4:0.5 E4:0.5 E3+A3:1.5 F#2+C#3+F#3+F#4:1@mf E4:0.5 F#2+C#3+F#3+F#4:0.5 F#4:0.5 C#3+F#3+G4:0.5 E4:0.5 A4:0.5 B2+F#3+B3+D4+F#4+B4:1 C#5:0.5 B2+F#3+B3+F#5:0.5 F#5:0.5 F#3+B3+G5:0.5 F#5:0.5 F#5:0.5 E2+B2+E3+G5:0.5 C#6:0.5 D6:0.5 E2+B2+E3+C#6:0.5 B5:0.5 B2+E3+A5:0.5 D6:0.5 B5:0.5 A2+E3+A3+E5+A5+C#6:1 C#5+E5+A5:0.5 A2+E3+A3:0.5 C#5+E5+A5:0.5 E3+A3:1.5 F#2+C#3+F#3+F#5+A5+C#6:1 C#5+F#5+A5:0.5 F#2+C#3+F#3:0.5 F#5:0.5 C#3+F#3+C#5:0.5 F#4+A4+C#5:1 B2+F#3+B3+F#4+B4+D5:1 D4+F#4+B4:0.5 B2+F#3+B3:0.5 F#4:0.5 F#3+B3+D4:0.5 B3+D4+F#4:1 C#3+G3+C#4+E4+G4:1.5 C#3+G3+D4:0.5 E4:0.5 G3+C#4:0.5 E4:1 F#2+F#3+A3+C#4+F#4:4@ff","u":"Warframe"},
 {"id":"jw5-09-orbite-de-venus","cat":"jeux","lvl":4,"title":"Orbite de Vénus","bpm":108,"desc":"Esprit Warframe, morceau original : valse froide et brillante — mode dorien.","h":2,"dsl":"C#3+G#4+C#5+E5:1@mf E3+G#3:0.5 A#5:0.5 E3+G#3+E5+G#5+C#6:1 F#2+F#5+A#5+C#6:1 A#3+C#4+D#6:0.5 C#6:0.5 A#3+C#4+A#5:0.5 B5:0.5 B2+D#5+F#5+B5:1 D#3+F#3+C#6:0.5 G#5:0.5 D#3+F#3+D#6:0.5 E6:0.5 E2+G#5+B5+E6:1 G#3+B3:1 G#3+B3:1 C#3+G#5+C#6+E6:1@f E3+G#3+C#6:0.5 D#6:0.5 E3+G#3+E6:0.5 C#6:0.5 F#2+F#5+A#5+C#6:1 A#3+C#4+E6:0.5 D#6:0.5 A#3+C#4+C#6:0.5 E6:0.5 B2+D#6:0.5 C#6:0.5 D#3+F#3+F#5+B5+D#6:1 D#3+F#3+F#5+B5+D#6:1 E2+G#5+B5+E6:1 G#3+B3+E5+G#5+B5:1 G#3+B3:1 C#3+E5+G#5+C#6:1 E3+G#3:0.5 E6:0.5 E3+G#3+G#5+C#6+E6:1 F#2+F#5+A#5+C#6:1 A#3+C#4+D#6:0.5 C#6:0.5 A#3+C#4+A#5:0.5 B5:0.5 G#2+D#5+G#5+B5:1 B2+D#3+C#6:0.5 G#5:0.5 B2+D#3+D#6:0.5 D#6:0.5 C#3+C#4+E5+G#5+C#6:3@ff","u":"Warframe","m":3},
 {"id":"jw5-10-assaut-de-l-armee","cat":"jeux","lvl":4,"title":"Assaut de l'armée clonée","bpm":114,"desc":"Esprit Warframe, morceau original : la grande bataille, martelée — mode phrygien.","h":2,"dsl":"A2+A3+E5+E6:1@mf G5+G6:0.5 A3+F5:0.5 F2+F3+A5+A6:0.5 A#5:0.5 C6+C7:0.5 F3+D6:0.5 D2+D3+D6:0.5 C6:0.5 A5+A6:0.5 D3:0.5 E2+E3+A#5+A#6:0.5 G5:0.5 A#5+A#6:0.5 E3:0.5 A2+A3+C6+C7:1.5 A3+D6:0.5 F2+F3+C6+C7:0.5 E6:0.5 A#5+A#6:0.5 F3+F5:0.5 D2+D3+F5+F6:1 F5+F6:0.5 D3:0.5 E2+E3+E5+E6:1.5 E3:0.5 A2+A3+E5+E6:1@f E5+E6:0.5 A3+F5:0.5 F2+F3+A5+A6:1 A5+A6:0.5 F3:0.5 D2+D3+A5+A6:0.5 A5:0.5 C6+C7:0.5 D3+A#5:0.5 E2+E3+G5+G6:1 E5+E6:0.5 E3+C5:0.5 A2+A3+C5+C6:1.5 A3+A4:0.5 F2+F3+C5+C6:1 C5+C6:0.5 F3:0.5 D2+D3+D5+D6:1 A4+A5:0.5 D3:0.5 E2+E3+G4+G5:1.5 E3:0.5 A2+A3+A4+A5:1 C5+C6:0.5 A3+A#4:0.5 F2+F3+C5+C6:0.5 D5:0.5 E5+E6:0.5 F3+F5:0.5 D2+D3+F5+F6:0.5 E5:0.5 D5+D6:0.5 D3:0.5 E2+E3+E5+E6:0.5 C5:0.5 E5+E6:0.5 E3:0.5 A2+A3+E5+E6:1.5 A3+F5:0.5 E2+E3+A#5+A#6:0.5 E6:0.5 A#5+A#6:0.5 E3+G5:0.5 A2+A3+C5+E5+A5:4@ff","u":"Warframe"}];
-const META={cinq:[1,'debut'],clair:[1,'chant'],jacques:[2,'chant'],ode:[2,'classique'],jingle:[2,'chant'],nuances:[2,'debut'],accords:[2,'debut'],deux:[3,'chant'],elise:[3,'classique'],
+const EXTRA6=[{"id":"d6-frere-jacques","cat":"chant","lvl":1,"title":"Frère Jacques, avec la basse","bpm":72,"desc":"La comptine connue : la mélodie à droite, une note de basse à gauche au début de chaque mesure.","h":2,"dsl":"C3+C4:1@mf D4:1 E4:1 C4:1 C3+C4:1 D4:1 E4:1 C4:1 C3+E4:1 F4:1 G4:2 C3+E4:1 F4:1 G4:2 C3+G4:0.5 A4:0.5 G4:0.5 F4:0.5 E4:1 C4:1 C3+G4:0.5 A4:0.5 G4:0.5 F4:0.5 E4:1 C4:1 C3+C4:1 G3:1 C4:2 C3+C4:1 G3:1 C4:2"},
+{"id":"d6-mary","cat":"chant","lvl":1,"title":"Mary et son agneau","bpm":84,"desc":"Une comptine très simple : trois notes à gauche suffisent pour accompagner.","h":2,"dsl":"C3+E4:1@mf D4:1 C4:1 D4:1 C3+E4:1 E4:1 E4:2 G2+D4:1 D4:1 D4:2 C3+E4:1 G4:1 G4:2 C3+E4:1 D4:1 C4:1 D4:1 C3+E4:1 E4:1 E4:1 E4:1 G2+D4:1 D4:1 E4:1 D4:1 C3+C4:4"},
+{"id":"d6-petits-pains","cat":"chant","lvl":1,"title":"Petits pains chauds","bpm":84,"desc":"Hot Cross Buns : une mélodie de trois notes et une basse tranquille.","h":2,"dsl":"C3+E4:1@mf D4:1 C4:2 C3+E4:1 D4:1 G2+C4:2 C3+C4:0.5 C4:0.5 C4:0.5 C4:0.5 D4:0.5 D4:0.5 D4:0.5 D4:0.5 C3+E4:1 D4:1 C4:2"},
+{"id":"d6-ah-vous-dirai-je","cat":"chant","lvl":2,"title":"Ah ! vous dirai-je, maman","bpm":84,"desc":"La mélodie que Mozart a variée, avec une basse qui alterne deux notes.","h":2,"dsl":"C3+C4:1@mf C4:1 G2+G4:1 G4:1 F2+A4:1 A4:1 C3+G4:2 F2+F4:1 F4:1 C3+E4:1 E4:1 G2+D4:1 D4:1 C3+C4:2 C3+G4:1 G4:1 F2+F4:1 F4:1 C3+E4:1 E4:1 G2+D4:2 C3+G4:1 G4:1 F2+F4:1 F4:1 C3+E4:1 E4:1 G2+D4:2 C3+C4:1 C4:1 G2+G4:1 G4:1 F2+A4:1 A4:1 C3+G4:2 F2+F4:1 F4:1 C3+E4:1 E4:1 G2+D4:1 D4:1 C3+C4:2"},
+{"id":"d6-joyeux-anniversaire","cat":"chant","lvl":2,"title":"Joyeux anniversaire","bpm":96,"desc":"Trois temps : une basse sur le premier temps, la mélodie que tout le monde connaît à droite.","h":2,"dsl":"G4:0.75@mf G4:0.25 C3+A4:1 G2+G4:1 C5:1 G2+B4:2 G4:0.75 G4:0.25 C3+A4:1 G4:1 G2+D5:1 C3+C5:2 G4:0.75 G4:0.25 C3+G5:1 G2+E5:1 C5:1 G2+B4:1 A4:1 F2+F5:0.75 F5:0.25 C3+E5:1 C5:1 G2+D5:1 C3+C5:3","m":3,"off":1},
+{"id":"d6-pont-de-londres","cat":"chant","lvl":2,"title":"Le pont de Londres","bpm":100,"desc":"London Bridge : une mélodie qui monte et qui descend, la basse change peu.","h":2,"dsl":"C3+G4:1.5@mf A4:0.5 G4:1 F4:1 C3+E4:1 F4:1 G4:2 G2+D4:1 E4:1 F4:2 C3+E4:1 F4:1 G4:2 C3+G4:1.5 A4:0.5 G4:1 F4:1 C3+E4:1 F4:1 G4:2 G2+D4:1 G4:1 C3+E4:1 C4:1"},
+{"id":"d6-ode-deux-mains","cat":"classique","lvl":2,"title":"Ode à la joie, deux mains","bpm":84,"desc":"Le thème de Beethoven avec une basse simple à gauche.","h":2,"dsl":"C3+E4:1@mf E4:1 G2+F4:1 G4:1 C3+G4:1 F4:1 G2+E4:1 D4:1 C3+C4:1 C4:1 G2+D4:1 E4:1 C3+E4:1.5 D4:0.5 G2+D4:2 C3+E4:1 E4:1 G2+F4:1 G4:1 C3+G4:1 F4:1 G2+E4:1 D4:1 C3+C4:1 C4:1 G2+D4:1 E4:1 G2+D4:1.5 C4:0.5 C3+C4:2"},
+{"id":"d6-jingle-deux-mains","cat":"chant","lvl":2,"title":"Vive le vent, deux mains","bpm":100,"desc":"Le refrain de Jingle Bells, avec les accords de base à gauche.","h":2,"dsl":"C3+E4:1@mf E4:1 E4:2 C3+E4:1 E4:1 E4:2 C3+E4:1 G4:1 C4:1.5 D4:0.5 C3+E4:4 F2+F4:1 F4:1 F4:1.5 F4:0.5 F2+F4:1 E4:1 C3+E4:1 E4:0.5 E4:0.5 C3+E4:1 D4:1 G2+D4:1 E4:1 G2+D4:2 G4:2 C3+E4:1 E4:1 E4:2 C3+E4:1 E4:1 E4:2 C3+E4:1 G4:1 C4:1.5 D4:0.5 C3+E4:4 F2+F4:1 F4:1 F4:1.5 F4:0.5 F2+F4:1 E4:1 C3+E4:1 E4:0.5 E4:0.5 C3+G4:1 G4:1 G2+F4:1 D4:1 C3+C4:4"},
+{"id":"d6-douce-nuit","cat":"chant","lvl":2,"title":"Douce nuit","bpm":66,"desc":"Un chant de Noël très doux, en trois temps : la basse accompagne chaque mesure.","h":2,"dsl":"C3+G4:1.5@mf A4:0.5 G4:1 C3+E4:3 C3+G4:1.5 A4:0.5 G4:1 C3+E4:3 G2+D5:2 D5:1 G2+B4:3 C3+C5:2 C5:1 C3+G4:3 F2+A4:2 C3+A4:1 F2+C5:1.5 B4:0.5 C3+A4:1 C3+G4:1.5 A4:0.5 G4:1 C3+E4:3 F2+A4:2 C3+A4:1 F2+C5:1.5 B4:0.5 C3+A4:1 C3+G4:1.5 A4:0.5 G4:1 C3+E4:3 G2+D5:2 D5:1 G2+F5:1.5 D5:0.5 B4:1 C3+C5:3 C3+C5:1.5 G4:0.5 F2+E4:1 G2+G4:1.5 F4:0.5 D4:1 C3+C4:3","m":3},
+{"id":"d6-canon-simplifie","cat":"classique","lvl":2,"title":"Canon simplifié","bpm":60,"desc":"Inspiré du canon de Pachelbel (domaine public) : la même basse qui tourne, une mélodie qui descend, puis des notes plus rapides.","h":2,"dsl":"C3+E5:2@p G2+D5:2 A2+C5:2 E3+B4:2 F2+A4:2 C3+G4:2 F2+A4:2 G2+B4:2 C3+E5:2 G2+D5:2 A2+C5:2 E3+B4:2 F2+A4:2 C3+G4:2 F2+A4:2 G2+B4:2 C3+E5:1 C5:1 G2+D5:1 B4:1 A2+C5:1 A4:1 E3+B4:1 G4:1 F2+A4:1 F4:1 C3+G4:1 E4:1 F2+A4:1 F4:1 G2+B4:1 G4:1 C3+E5:1 C5:1 G2+D5:1 B4:1 A2+C5:1 A4:1 E3+B4:1 G4:1 F2+A4:1 F4:1 C3+G4:1 E4:1 F2+A4:1 F4:1 G2+B4:1 G4:1 C3+E4+G4+C5:4@mf"},
+{"id":"d6-petits-pas","cat":"debut","lvl":1,"title":"Petits pas","bpm":72,"desc":"Original : la gamme de cinq notes à droite, une basse tranquille à gauche.","h":2,"dsl":"C3+C4:1@mf D4:1 E4:1 F4:1 C3+G4:2 E4:2 F2+F4:1 E4:1 G2+D4:1 E4:1 C3+C4:4 C3+G4:1 G4:1 E4:1 E4:1 F2+F4:1 F4:1 G2+D4:2 C3+E4:1 G4:1 G2+F4:1 D4:1 C3+C4:4"},
+{"id":"d6-petit-nuage","cat":"anime","lvl":1,"title":"Petit nuage","bpm":66,"desc":"Original : des notes longues et paisibles, parfaites pour apprendre à coordonner les deux mains.","h":2,"dsl":"C3+E4:2@mf G4:2 F2+F4:2 C3+E4:2 G2+D4:2 F4:2 C3+E4:4 C3+G4:2 E4:2 F2+F4:2 G2+D4:2 C3+E4:2 G2+D4:2 C3+C4:4"},
+{"id":"d6-course-de-tortues","cat":"dessin","lvl":1,"title":"Course de tortues","bpm":84,"desc":"Original : des notes qui avancent deux par deux, comme des tortues qui se défient.","h":2,"dsl":"C3+C4:1@mf C4:1 D4:1 D4:1 C3+E4:1 E4:1 F2+F4:1 F4:1 C3+G4:1 G4:1 G4:1 G4:1 G2+F4:1 E4:1 C3+D4:1 C4:1 C3+G4:1 G4:1 F2+F4:1 F4:1 C3+E4:1 E4:1 G2+D4:1 D4:1 C3+C4:1 E4:1 G4:1 E4:1 C3+C4:4"},
+{"id":"d6-village-paisible","cat":"jeux","lvl":2,"title":"Village paisible","bpm":76,"desc":"Original, ambiance de jeu de rôle : trois accords et une mélodie qui chante.","h":2,"dsl":"C3+G4:1@mf E4:1 G2+G4:1 E4:1 F2+A4:1 F4:1 C3+A4:1 F4:1 C3+G4:1 E4:1 G2+G4:1 E4:1 G2+D4:2 D3+G4:2 C3+E4:1 G4:1 G2+C5:1 G4:1 F2+A4:1 C5:1 C3+A4:1 F4:1 C3+G4:1 F4:1 G2+E4:1 D4:1 C3+C4:4"},
+{"id":"d6-ballon-qui-monte","cat":"debut","lvl":2,"title":"Le ballon qui monte","bpm":72,"desc":"Original : des petits arpèges qui montent à droite, pendant que la gauche reste calme.","h":2,"dsl":"C3+C4:1@mf E4:1 G2+G4:1 E4:1 D3+D4:1 F4:1 A2+A4:1 F4:1 C3+E4:1 G4:1 G2+C5:1 G4:1 C3+G4:2 G2+E4:2 F2+F4:1 A4:1 C3+C5:1 A4:1 G2+G4:1 B4:1 D3+D5:1 B4:1 C3+C5:1 G4:1 G2+E4:1 G4:1 C3+C4:4"},
+{"id":"d6-petit-robot","cat":"jeux","lvl":2,"title":"Marche du petit robot","bpm":80,"desc":"Original : des notes répétées bien régulières, comme un robot qui marche.","h":2,"dsl":"C3+C4:1@mf C4:1 G2+E4:1 E4:1 C3+G4:1 G4:1 G2+E4:2 F2+F4:1 F4:1 C3+A4:1 A4:1 G2+G4:2 D3+G4:2 C3+C4:1 C4:1 G2+E4:1 E4:1 C3+G4:1 G4:1 G2+C5:2 F2+A4:1 F4:1 G2+D4:1 G4:1 C3+C4:4"},
+{"id":"d6-lever-de-soleil","cat":"anime","lvl":2,"title":"Lever de soleil","bpm":72,"desc":"Original, en trois temps : une valse lente pour accompagner le soleil qui monte.","h":2,"dsl":"C3+E4:2@mf G4:1 C3+C5:3 G2+B4:2 G4:1 F2+A4:3 C3+G4:2 E4:1 F2+F4:2 G2+D4:1 G2+D4:3 C3+C4:3","m":3},
+{"id":"d6-cache-cache","cat":"dessin","lvl":2,"title":"Cache-cache","bpm":88,"desc":"Original : une mélodie sautillante, avec des arpèges à droite.","h":2,"dsl":"C3+C4:1@mf E4:1 G2+C4:1 E4:1 G2+D4:1 F4:1 D3+D4:1 F4:1 C3+E4:1 G4:1 G2+E4:1 G4:1 F2+F4:1 A4:1 C3+G4:2 C3+C5:1 G4:1 G2+E4:1 C4:1 G2+D5:1 B4:1 D3+G4:1 D4:1 C3+E4:1 F4:1 G2+D4:1 G4:1 C3+C4:4"},
+{"id":"d6-victoire","cat":"jeux","lvl":2,"title":"Victoire !","bpm":100,"desc":"Original : la petite fanfare qui annonce que le niveau est gagné.","h":2,"dsl":"C3+C4:1@mf E4:1 G2+G4:1 C5:1 C3+C5:2 G2+G4:2 F2+F4:1 A4:1 C3+C5:1 A4:1 G2+G4:2 D3+B4:2 C3+C5:1 B4:1 F2+A4:1 G4:1 F2+F4:1 G4:1 G2+A4:1 B4:1 C3+C5:1 G4:1 G2+E4:1 C4:1 C3+C4:4"}];
+const META={cinq:[1,'debut'],clair:[1,'chant'],jacques:[2,'chant'],ode:[2,'classique'],jingle:[2,'chant'],nuances:[2,'debut'],accords:[2,'debut'],deux:[2,'chant'],elise:[3,'classique'],
  'u-aube':[3,'anime'],'u-boss':[3,'jeux'],'u-village':[2,'anime'],'u-arcade':[4,'jeux'],'u-koro':[3,'jeux'],'u-roi':[3,'dessin'],'u-turque':[4,'dessin']};
 QUESTS.forEach(q=>{q.lvl=1;q.cat='debut';});
 PIECES.concat(UNIV).forEach(x=>{const m=META[x.id];if(m){x.lvl=m[0];x.cat=m[1];}});
-const allPieces=()=>PIECES.concat(EXTRA,EXTRA2,EXTRA3,EXTRA4,EXTRA5,UNIV,custom);
+const allPieces=()=>PIECES.concat(EXTRA,EXTRA2,EXTRA3,EXTRA4,EXTRA5,EXTRA6,UNIV,custom);
 const pieceById=id=>allPieces().find(p=>p.id===id);
 const parsed={};
 const getParsed=p=>parsed[p.id]||(parsed[p.id]=parse(p.dsl));
@@ -754,7 +814,9 @@ function show(v){
   if(sheetOn)closeSheet(true);
   view=v;views.forEach(x=>{$('v-'+x).hidden=x!==v;});
   $('dock').hidden=v!=='play';
-  const bk=$('tgBack');if(bk)bk.hidden=v==='home';
+  const bk=$('tgBack');if(bk)bk.hidden=v==='home'||v==='progress'||(v==='profile'&&!profile);
+  const tb=$('tabs');if(tb)tb.hidden=!(v==='home'||v==='progress');
+  tabsUI();
   syncHist();
   const st=$('stage');if(st)st.scrollTop=0;
 }
@@ -773,7 +835,7 @@ function setLast(){document.querySelectorAll('.mLast').forEach(e=>{e.textContent
 function setCalMsg(t){calMsg=t;document.querySelectorAll('.mCal').forEach(e=>{e.textContent=t;});}
 
 function recCard(){
-  return '<div class="card recCard"><h3>2 · À toi de jouer</h3><ol class="steps"><li>Touche « Enregistrer » : l\'enregistreur du téléphone s\'ouvre.</li><li>Pose le téléphone près du piano et joue les notes l\'une après l\'autre, environ une par seconde.</li><li>Arrête l\'enregistrement et valide : l\'application te dit ce qui était juste.</li></ol>'+
+  return '<div class="card recCard"><h3>🎙 Enregistrer puis analyser</h3><ol class="steps"><li>Touche « Enregistrer » : l\'enregistreur du téléphone s\'ouvre.</li><li>Pose le téléphone près du piano et joue les notes l\'une après l\'autre, environ une par seconde.</li><li>Arrête l\'enregistrement et valide : l\'application te dit ce qui était juste.</li></ol>'+
    '<div class="row micrew"><label class="btn pri big">Enregistrer puis analyser<input class="vh recIn" type="file" accept="audio/*" capture aria-label="Enregistrer avec le téléphone"></label>'+
    '<label class="btn big">Choisir un enregistrement<input class="vh recIn" type="file" accept="audio/*" aria-label="Choisir un enregistrement existant"></label></div>'+
    '<div class="row micrew"><label class="btn">🔌 Tester mon câble<input class="vh cabIn" type="file" accept="audio/*" capture aria-label="Tester mon câble : enregistrer quelques notes"></label><span class="pinfo">Câble jack ↔ USB-C : branche-le au piano (volume du piano plutôt bas), joue 4 ou 5 notes, valide : je vérifie le niveau.</span></div>'+
@@ -836,68 +898,91 @@ function plan(){
 }
 
 const CATS=[['all','Tout'],['fav','♥ Favoris'],['debut','Pour débuter'],['chant','Chants et comptines'],['classique','Classiques'],['anime','Esprit animé'],['jeux','Jeux vidéo'],['dessin','Dessins animés']];
-let fCat='all',fLvl=0,fHand=0,fUni='';
+let fCat='all',fLvl=0,fHand=0,fUni='',fQ='',homeTab='accueil';
+const norm=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+function tabsUI(){const t=document.getElementById('tabs');if(!t)return;const cur=view==='progress'?'progress':homeTab;t.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===cur?'page':'false'));}
 function libItem(x,recId){
   const pr=prog[x.id]||{},fv=favs.includes(x.id);
-  return '<div class="prw"><button class="pr'+(x.id===recId?' rec':'')+'" data-open="'+x.id+'"><span class="t"><b>'+esc(x.title)+(x.id===recId?'<i class="tag">Pour toi</i>':'')+'</b><span><span aria-label="Difficulté '+x.lvl+' sur 5" style="color:var(--accent);letter-spacing:.08em">'+dots(x.lvl)+'</span> · '+esc(x.desc)+(pr.plays?' · meilleur : '+Math.round(pr.acc*100)+' %':'')+'</span></span><span class="stars">'+starsStr(pr.stars||0)+'</span></button><button class="fav" data-fav="'+x.id+'" aria-pressed="'+fv+'" aria-label="'+(fv?'Retirer des favoris':'Ajouter aux favoris')+'">'+(fv?'♥':'♡')+'</button></div>';
+  const sub='<span style="color:var(--accent);letter-spacing:.08em" aria-label="Difficulté '+x.lvl+' sur 5">'+dots(x.lvl)+'</span>'+(x.u?' · '+esc(x.u):'')+(pr.plays?' · '+Math.round(pr.acc*100)+' %':'');
+  return '<div class="prw"><button class="pr'+(x.id===recId?' rec':'')+'" data-open="'+x.id+'"><span class="t"><b>'+esc(x.title)+(x.id===recId?'<i class="tag">Pour toi</i>':'')+'</b><span class="one">'+sub+'</span></span><span class="stars">'+starsStr(pr.stars||0)+'</span></button><button class="fav" data-fav="'+x.id+'" aria-pressed="'+fv+'" aria-label="'+(fv?'Retirer des favoris':'Ajouter aux favoris')+'">'+(fv?'♥':'♡')+'</button></div>';
 }
-function renderHome(){
-  const p=profile||{name:'',min:10},d=dayRec(),goal=p.min||10;
-  const pct=Math.min(100,Math.round(d.min/goal*100)),rec=recommended();
-  let h='<div class="card"><div class="eyebrow">'+new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+'</div>';
-  h+='<h2>Bonjour'+(p.name?' '+esc(p.name):'')+'</h2>';
-  h+='<div class="stats"><div class="stat"><b>'+streak()+'</b><span>jours de suite</span></div><div class="stat"><b>'+Math.floor(d.min)+' / '+goal+'</b><span>minutes aujourd\'hui</span></div><div class="stat"><b>Niveau '+(Math.floor(xp()/250)+1)+'</b><span>'+rank()+' · '+(xp()%250)+' / 250 points</span></div></div>';
-  h+='<div class="bar"><span style="width:'+pct+'%"></span></div><div class="row"><button class="btn" data-a="progress">Voir mon évolution détaillée</button></div></div>';
+function libList(){
+  const q=norm(fQ.trim());
+  return allPieces().filter(x=>!x.custom).map((x,k)=>({x,k})).filter(o=>(fCat==='all'||(fCat==='fav'?favs.includes(o.x.id):o.x.cat===fCat))&&(!fLvl||o.x.lvl===fLvl)&&(!fHand||o.x.h===fHand)&&(!fUni||o.x.u===fUni)&&(!q||norm(o.x.title+' '+(o.x.u||'')).indexOf(q)>=0)).sort((a,b)=>(a.x.lvl-b.x.lvl)||(a.k-b.k)).map(o=>o.x);
+}
+function renderLib(){
+  const el=$('libList');if(!el)return;
+  const l=libList(),rid=recommended().id;
+  el.innerHTML=l.length?l.map(x=>libItem(x,rid)).join(''):'<p class="muted">Aucun morceau trouvé.</p>';
+  const c=$('libCount');if(c)c.textContent=l.length+' morceau'+(l.length>1?'x':'');
+}
+function homeToday(rec){
+  const p=profile||{name:'',min:10},d=dayRec(),goal=p.min||10,pct=Math.min(100,Math.round(d.min/goal*100));
+  let h='<div class="card hero"><div class="eyebrow">'+new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+'</div><h2>Bonjour'+(p.name?' '+esc(p.name):'')+' 👋</h2>'+
+    '<div class="hchips"><span>🔥 '+streak()+' jour'+(streak()>1?'s':'')+'</span><span>⏱ '+Math.floor(d.min)+' / '+goal+' min</span><span>⭐ Niveau '+(Math.floor(xp()/250)+1)+'</span></div>'+
+    '<div class="bar" aria-label="Objectif du jour"><span style="width:'+pct+'%"></span></div>'+
+    '<button class="btn play pulse" data-play="'+rec.id+'">▶ Jouer : '+esc(rec.title)+'</button></div>';
+  const fl=favs.map(id=>pieceById(id)).filter(Boolean);
+  const pl=plan().filter(i=>i.id!==rec.id);
+  if(pl.length)h+='<div class="card"><h3>📅 Aujourd\'hui</h3><div class="plan">'+pl.map(i=>
+    '<button class="pi'+(i.done?' done':'')+'" '+(i.id==='__create'?'data-open':'data-play')+'="'+i.id+'"><span class="ck">'+(i.done?'✓':'')+'</span><span class="t"><b>'+esc(i.label)+'</b><span>'+esc(i.sub)+'</span></span></button>').join('')+'</div></div>';
+  if(fl.length)h+='<div class="card"><h3><span style="color:#D6336C">♥</span> Mes favoris</h3><div class="list">'+fl.map(x=>libItem(x,rec.id)).join('')+'</div></div>';
+  return h;
+}
+function homeSongs(){
   const all=allPieces().filter(x=>!x.custom);
-  {
-    const fl=favs.map(id=>pieceById(id)).filter(Boolean);
-    const mp=all.filter(x=>(prog[x.id]||{}).plays).sort((a,b)=>(prog[b.id].plays-prog[a.id].plays)).slice(0,3);
-    h+='<div class="card"><h3><span style="color:#D6336C">♥</span> Mes favoris <span class="muted" style="font-weight:500">('+fl.length+')</span></h3>';
-    h+=fl.length?'<div class="list">'+fl.map(x=>libItem(x,rec.id)).join('')+'</div>':'<p class="muted">Touche le cœur ♡ à côté d\'un morceau pour le garder ici, tout en haut de l\'accueil.</p>';
-    if(mp.length)h+='<h3 style="margin-top:6px">Les plus joués</h3><div class="list">'+mp.map(x=>libItem(x,rec.id)).join('')+'</div>';
-    h+='</div>';
-  }
-  const list=all.map((x,k)=>({x,k})).filter(o=>(fCat==='all'||(fCat==='fav'?favs.includes(o.x.id):o.x.cat===fCat))&&(!fLvl||o.x.lvl===fLvl)&&(!fHand||o.x.h===fHand)&&(!fUni||o.x.u===fUni)).sort((a,b)=>(a.x.lvl-b.x.lvl)||(a.k-b.k)).map(o=>o.x);
-  h+='<div class="card"><h3>Tous les morceaux <span class="muted" style="font-weight:500">('+list.length+')</span></h3><p class="muted">Tout est ouvert : choisis librement. Les points indiquent la difficulté, de 1 à 5.</p>';
-  h+='<div class="row">'+CATS.map(c=>'<button class="btn sm chip" data-cat="'+c[0]+'" aria-pressed="'+(fCat===c[0])+'">'+c[1]+'</button>').join('')+'</div>';
-  h+='<div class="row">'+[0,1,2,3,4,5].map(n=>'<button class="btn sm chip" data-lvl="'+n+'" aria-pressed="'+(fLvl===n)+'">'+(n?dots(n):'Tous niveaux')+'</button>').join('')+'</div>';
-  h+='<div class="row">'+[[0,'Toutes les mains'],[1,'Une seule main'],[2,'Deux mains']].map(a=>'<button class="btn sm chip" data-hand="'+a[0]+'" aria-pressed="'+(fHand===a[0])+'">'+a[1]+'</button>').join('')+'</div>';
-  {const us=[...new Set(all.map(x=>x.u).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
-   h+='<div class="row"><label class="uni">Univers <select id="fUni" aria-label="Filtrer par univers (animé ou jeu)"><option value="">Tous (One Piece, Warframe…)</option>'+us.map(u=>'<option value="'+esc(u)+'"'+(fUni===u?' selected':'')+'>'+esc(u)+'</option>').join('')+'</select></label></div>';}
-  h+='<div class="list">'+(list.length?list.map(x=>libItem(x,rec.id)).join(''):'<p class="muted">Aucun morceau pour ce filtre.</p>')+'</div></div>';
-  h+='<div class="card"><h3>Ta séance du jour</h3><div class="plan">'+plan().map(i=>
-    '<button class="pi'+(i.done?' done':'')+'" data-open="'+i.id+'"><span class="ck">'+(i.done?'✓':'')+'</span><span class="t"><b>'+esc(i.label)+'</b><span>'+esc(i.sub)+'</span></span></button>').join('')+'</div></div>';
-  h+=micCard();
-  h+='<div class="card"><h3>Mes morceaux</h3>';
+  let h='<div class="card"><input class="srch" id="fQ" type="search" placeholder="🔍 Chercher un morceau" value="'+esc(fQ)+'" aria-label="Chercher un morceau" autocomplete="off">';
+  const cc=CATS.map(c=>'<button class="btn sm chip" data-cat="'+c[0]+'" aria-pressed="'+(fCat===c[0])+'">'+c[1]+'</button>');
+  cc.splice(3,0,'<button class="btn sm chip" data-hand="'+(fHand===2?0:2)+'" aria-pressed="'+(fHand===2)+'">🙌 Deux mains</button>');
+  h+='<div class="chips">'+cc.join('')+'</div>';
+  h+='<details class="dd2"'+((fLvl||fHand||fUni)?' open':'')+'><summary>Plus de filtres</summary><div class="ddin">';
+  h+='<div class="chips">'+[0,1,2,3,4,5].map(n=>'<button class="btn sm chip" data-lvl="'+n+'" aria-pressed="'+(fLvl===n)+'">'+(n?dots(n):'Tous niveaux')+'</button>').join('')+'</div>';
+  h+='<div class="chips">'+[[0,'Toutes les mains'],[1,'Une main'],[2,'Deux mains']].map(a=>'<button class="btn sm chip" data-hand="'+a[0]+'" aria-pressed="'+(fHand===a[0])+'">'+a[1]+'</button>').join('')+'</div>';
+  const us=[...new Set(all.map(x=>x.u).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+  h+='<label class="uni">Univers <select id="fUni" aria-label="Filtrer par univers (animé ou jeu)"><option value="">Tous (One Piece, Warframe…)</option>'+us.map(u=>'<option value="'+esc(u)+'"'+(fUni===u?' selected':'')+'>'+esc(u)+'</option>').join('')+'</select></label>';
+  h+='</div></details><p class="muted" id="libCount"></p><div class="list" id="libList"></div></div>';
+  return h;
+}
+function homePlus(){
+  let h=micCard();
+  h+='<div class="card"><h3>✏️ Mes morceaux</h3>';
   if(custom.length){
     h+='<div class="list">'+custom.map(x=>{const pr=prog[x.id]||{};
       return '<div class="row"><button class="pr" style="flex:1" data-open="'+x.id+'"><span class="t"><b>'+esc(x.title)+'</b><span>'+x.bpm+' battements par minute</span></span><span class="stars">'+starsStr(pr.stars||0)+'</span></button><button class="btn sm" data-del="'+x.id+'">Supprimer</button></div>';}).join('')+'</div>';
-  }else h+='<p class="muted">Écris une mélodie avec les noms des notes : l\'application la fait tomber sur le clavier et te la fait jouer.</p>';
-  h+='<div class="row"><button class="btn pri" data-a="create">Créer un morceau</button><button class="btn" data-a="profile">Modifier mon profil</button></div></div>';
-  $('v-home').innerHTML=h;
+  }else h+='<p class="muted">Écris une mélodie avec les noms des notes : elle tombe sur le clavier et tu la joues.</p>';
+  h+='<div class="row"><button class="btn pri" data-a="create">Créer un morceau</button></div></div>';
+  h+='<div class="card"><h3>👤 Mon profil</h3><p class="muted">'+(profile&&profile.name?esc(profile.name)+' · ':'')+'objectif de '+((profile&&profile.min)||10)+' minutes par jour</p><div class="row"><button class="btn" data-a="profile">Modifier mon profil</button></div></div>';
+  h+='<p class="muted" style="text-align:center;font-size:.72rem">Version 28</p>';
+  return h;
+}
+function renderHome(){
+  tabsUI();
+  $('v-home').innerHTML=homeTab==='morceaux'?homeSongs():homeTab==='plus'?homePlus():homeToday(recommended());
+  if(homeTab==='morceaux')renderLib();
 }
 
 function renderProfile(){
   const p=profile||{name:'Mathis',exp:'zero',goal:'play',min:10};
   const radio=(name,val,title,sub,cur)=>'<label class="opt"><input type="radio" name="'+name+'" value="'+val+'"'+(cur===val?' checked':'')+'><span><b>'+title+'</b><small>'+sub+'</small></span></label>';
-  $('v-profile').innerHTML='<div class="card"><div class="eyebrow">Ton profil</div><h2>Un parcours à ta mesure</h2>'+
-   '<p class="muted">Ces réponses règlent le point de départ, la vitesse, le mode de jeu et ta séance quotidienne. Tu pourras les changer à tout moment.</p>'+
+  const first=!profile;
+  $('v-profile').innerHTML='<div class="card"><div class="eyebrow">'+(first?'Bienvenue':'Ton profil')+'</div><h2>'+(first?'Faisons connaissance 👋':'Un parcours à ta mesure')+'</h2>'+
+   (first?'':'<p class="muted">Ces réponses règlent le point de départ, la vitesse et ta séance quotidienne.</p>')+
    '<div class="fld"><label class="l" for="pfName">Ton prénom</label><input type="text" id="pfName" value="'+esc(p.name||'')+'" maxlength="30"></div>'+
    '<div class="fld"><span class="l">Ton niveau</span>'+
     radio('exp','zero','Je débute','Je n\'ai jamais vraiment joué',p.exp)+
     radio('exp','notions','Je connais un peu','Je sais où sont les notes',p.exp)+
     radio('exp','bases','Je sais déjà jouer un peu','Je veux passer vite aux vrais morceaux',p.exp)+'</div>'+
-   '<div class="fld"><span class="l">Ton objectif</span>'+
+   (first?'':'<div class="fld"><span class="l">Ton objectif</span>'+
     radio('goal','play','Jouer mes premiers morceaux','Des mélodies que je reconnais',p.goal)+
     radio('goal','create','Créer mes propres mélodies','Une séance qui inclut la composition',p.goal)+
-    radio('goal','habit','Progresser un peu chaque jour','Régularité et série de jours',p.goal)+'</div>'+
-   '<div class="fld"><span class="l">Ton univers préféré</span>'+
+    radio('goal','habit','Progresser un peu chaque jour','Régularité et série de jours',p.goal)+'</div>')+
+   (first?'':'<div class="fld"><span class="l">Ton univers préféré</span>'+
     radio('univ','anime','Animés et jeux de rôle','Mélodies héroïques et aventureuses',p.univ)+
     radio('univ','jeux','Jeux vidéo et arcade','Rythmes rapides, ambiance 8 bits',p.univ)+
     radio('univ','dessin','Dessins animés','Courses folles et notes qui s\'enchaînent',p.univ)+
-    radio('univ','all','Un peu de tout','Pas de préférence',p.univ||'all')+'</div>'+
-   '<div class="fld"><span class="l">Temps par jour</span><div class="row">'+[5,10,15,20,30].map(n=>'<label class="opt" style="padding:6px 12px"><input type="radio" name="min" value="'+n+'"'+(+p.min===n?' checked':'')+'><span>'+n+' min</span></label>').join('')+'</div></div>'+
-   '<div class="row"><button class="btn pri" data-a="saveprofile">Enregistrer</button>'+(profile?'<button class="btn" data-a="home">Annuler</button>':'')+'</div></div>';
+    radio('univ','all','Un peu de tout','Pas de préférence',p.univ||'all')+'</div>')+
+   (first?'':'<div class="fld"><span class="l">Temps par jour</span><div class="row">'+[5,10,15,20,30].map(n=>'<label class="opt" style="padding:6px 12px"><input type="radio" name="min" value="'+n+'"'+(+p.min===n?' checked':'')+'><span>'+n+' min</span></label>').join('')+'</div></div>')+
+   '<div class="row"><button class="btn pri big" data-a="saveprofile">'+(first?'C\'est parti !':'Enregistrer')+'</button>'+(profile?'<button class="btn big" data-a="home">Annuler</button>':'')+'</div></div>';
 }
 const radioVal=n=>{const e=document.querySelector('input[name="'+n+'"]:checked');return e?e.value:null;};
 
@@ -993,11 +1078,11 @@ function closeSheet(fromPop){
 }
 /* Navigation : une seule entrée d'historique tant qu'on n'est pas à l'accueil ; le bouton retour d'Android remonte d'un écran */
 let ent=0;
-function atRoot(){return view==='home'&&!sheetOn;}
+function atRoot(){return view==='home'&&homeTab==='accueil'&&!sheetOn;}
 function syncHist(){if(!atRoot()&&ent===0){try{history.pushState({nav:1},'');ent=1;}catch(e){}}}
 function navBack(){
   if(sheetOn){closeSheet();return true;}
-  if(view==='home')return false;
+  if(view==='home'){if(homeTab!=='accueil'){homeTab='accueil';renderHome();return true;}return false;}
   if(view==='play'){quitPlay();return true;}
   if(view==='result'&&setupPiece){renderSetup(setupPiece);show('setup');return true;}
   goHome();return true;
@@ -1024,22 +1109,25 @@ function renderSetup(p){
   const tempo=pr.tempo||(profile&&profile.tempo)||70,mode=pr.mode||(profile&&profile.mode)||'wait';
   const hasNu=E.events&&E.events.some(e=>e.nu),isQ=/^q\d+$/.test(p.id);
   const isF=favs.includes(p.id);
-  let h='<div class="card"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div class="eyebrow">'+(isQ?'Quête':'Morceau')+(p.u?' · '+esc(p.u):'')+'</div><button class="btn sm favb" data-fav="'+p.id+'" aria-pressed="'+isF+'">'+(isF?'♥ Dans mes favoris':'♡ Ajouter aux favoris')+'</button></div><h2>'+esc(p.title)+'</h2><p class="muted">'+esc(p.desc||'')+'</p>';
-  if(p.tip)h+='<p><b>Où jouer ?</b> '+esc(p.tip)+'</p>';
-  if(E.events){h+='<div class="scroll">'+kbSvg(E.events)+'</div>';if(E.events.length<=10)h+='<p class="pinfo">Les chiffres indiquent l\'ordre des notes sur le clavier.</p>';}
-  h+='<div class="stats"><div class="stat"><b class="stars" style="font-size:1.1rem">'+starsStr(pr.stars||0)+'</b><span>étoiles</span></div><div class="stat"><b>'+(pr.plays?Math.round(pr.acc*100)+' %':'–')+'</b><span>meilleure réussite</span></div><div class="stat"><b>'+(E.events?E.events.length:0)+'</b><span>notes</span></div></div>';
-  if(E.events)h+='<button class="btn pri big" data-a="sheet">Voir toutes les notes sur une seule page</button>';
-  h+='<h3>1 · Regarde et écoute</h3><p class="muted">L\'application joue le morceau : les notes tombent et tu les entends. Refais-le autant de fois que nécessaire.</p>'+
+  const desc=String(p.desc||''),short=desc.length>150?desc.slice(0,147).replace(/\s+\S*$/,'')+'…':desc;
+  let h='<div class="card"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div class="eyebrow">'+(isQ?'Quête':'Morceau')+(p.u?' · '+esc(p.u):'')+'</div><button class="btn sm favb" data-fav="'+p.id+'" aria-pressed="'+isF+'">'+(isF?'♥ Favori':'♡ Favori')+'</button></div><h2>'+esc(p.title)+'</h2>';
+  if(short)h+='<p class="muted">'+esc(short)+'</p>';
+  if(E.events&&E.events.length<=10){h+='<div class="scroll">'+kbSvg(E.events)+'</div>';}
+  if(p.tip)h+='<p class="muted">'+esc(p.tip)+'</p>';
+  h+='<p class="meta"><span class="stars">'+starsStr(pr.stars||0)+'</span> · '+(pr.plays?Math.round(pr.acc*100)+' %':'pas encore joué')+' · '+(E.events?E.events.length:0)+' notes · <span style="color:var(--accent)">'+dots(p.lvl||1)+'</span></p>';
+  h+='<button class="btn pri big play pulse" data-a="start">▶ Jouer</button>';
+  h+='<p class="pinfo" style="text-align:center">'+(nMidi()?'🎹 Piano relié (MIDI)':micOn?'🎤 Micro actif':'🎤 Le micro s\'active quand tu touches « Jouer »')+'</p>';
+  h+='<div class="row"><button class="btn big" style="flex:1" data-a="demo">👂 Écouter</button>'+(E.events?'<button class="btn big" style="flex:1" data-a="sheet">📄 Les notes</button>':'')+'</div>';
+  h+='<details class="dd2"><summary>⚙️ Vitesse '+tempo+' % · '+(mode==='time'?'En rythme':'J\'attends mes notes')+'</summary><div class="ddin">'+
      '<div class="fld"><label class="l" for="tempo">Vitesse : <span id="tempoV">'+tempo+'</span> %</label><input class="range" type="range" id="tempo" min="40" max="120" step="5" value="'+tempo+'"></div>'+
-     '<div class="row"><button class="btn pri big" data-a="demo">Écouter et regarder</button><button class="btn big" data-a="home">Retour</button></div></div>';
-  if(E.events)h+='<details class="dd" id="ddNotes"><summary><b>Toutes les notes du morceau</b> (détail, en défilant)</summary><div class="ddin" id="ddNotesBody"><p class="muted">Chaque case est un moment du morceau : son nom de note, l\'octave en petit, et dessous sa durée en symbole de partition avec le nombre de temps (« · » = silence). La main (D ou G) est devinée d\'après la hauteur des notes : les graves à gauche, les aiguës à droite, c\'est une suggestion et pas un doigté officiel. Les couleurs sont les mêmes sur le clavier et dans les notes qui tombent.</p></div></details>';
-  h+=recCard();
-  if(hasNu)h+='<p class="pinfo">Les nuances (p = doux, f = fort) sont estimées d\'après le volume enregistré.</p>';
-  h+='<details class="dd"'+(micOn||nMidi()?' open':'')+'><summary>Jouer en direct : piano relié (MIDI) ou micro</summary><div class="ddin">'+
      '<div class="fld"><span class="l">Mode de jeu</span>'+
-      '<label class="opt"><input type="radio" name="mode" value="wait"'+(mode==='wait'?' checked':'')+'><span><b>J\'attends mes notes</b><small>Les notes s\'arrêtent sur la ligne tant que tu n\'as pas joué la bonne.</small></span></label>'+
-      '<label class="opt"><input type="radio" name="mode" value="time"'+(mode==='time'?' checked':'')+'><span><b>En rythme</b><small>Les notes ne s\'arrêtent pas : joue-les au bon moment.</small></span></label></div>'+
-     '<div class="row"><button class="btn pri btnStart" data-a="start">'+(nMidi()?'Commencer avec mon piano relié':'Commencer avec le micro en direct')+'</button></div>'+midiBody()+'<hr>'+micBody()+'</div></details>';
+      '<label class="opt"><input type="radio" name="mode" value="wait"'+(mode==='wait'?' checked':'')+'><span><b>J\'attends mes notes</b><small>Les notes attendent que tu joues la bonne.</small></span></label>'+
+      '<label class="opt"><input type="radio" name="mode" value="time"'+(mode==='time'?' checked':'')+'><span><b>En rythme</b><small>Les notes ne s\'arrêtent pas.</small></span></label></div></div></details></div>';
+  h+='<details class="dd"><summary>Plus d\'options</summary><div class="ddin">'+
+     (E.events?'<details class="dd2" id="ddNotes"><summary>Toutes les notes du morceau (détail)</summary><div class="ddin" id="ddNotesBody"></div></details>':'')+
+     recCard()+
+     (hasNu?'<p class="pinfo">Les nuances (p = doux, f = fort) sont estimées d\'après le volume enregistré.</p>':'')+
+     '<div class="fld"><span class="l">Piano et micro</span></div>'+midiBody()+'<hr>'+micBody()+'</div></details>';
   $('v-setup').innerHTML=h;
 }
 
@@ -1079,7 +1167,7 @@ function renderPlay(){
     updateHud();return;
   }
   $('v-play').innerHTML='<div class="hud"><div class="top2"><div><div class="eyebrow">'+(P.mode==='wait'?'Mode j\'attends mes notes':'Mode en rythme')+' · '+P.tempo+' %</div><h3>'+esc(P.piece.title)+'</h3></div><div class="row"><button class="btn sm" data-a="pause" id="bPause">Pause</button><button class="btn sm" data-a="quit">Quitter</button></div></div>'+
-    '<div class="bar"><span id="pbar"></span></div><div class="row" style="justify-content:space-between"><span class="count" id="pscore"></span><span class="count" id="pcombo"></span></div>'+
+    '<div class="row"><button class="btn sm" data-a="skipch" id="bSkip" hidden>Passer cet accord</button></div><div class="bar"><span id="pbar"></span></div><div class="row" style="justify-content:space-between"><span class="count" id="pscore"></span><span class="count" id="pcombo"></span></div>'+
     '<div class="mm"><span>Force</span><div class="vel" aria-hidden="true"><span id="pvel"></span></div>'+(nMidi()?'<span>Piano relié (MIDI)</span>':'<span>Micro</span><div class="vel" aria-hidden="true"><span class="mLvl"></span><i class="mThr"></i></div>')+'</div><div class="pinfo" id="pinfo" aria-live="polite"></div><div class="pmsg" id="pmsg" role="status" aria-live="polite"></div></div>';
   updateHud();
 }
@@ -1092,6 +1180,7 @@ function updateHud(){
   if(m){m.textContent=P.msg;m.className='pmsg '+P.cls;}
   if(i)i.textContent=P.info;
   if(v)v.style.width=Math.round(P.lastVel/127*100)+'%';
+  const sk=$('bSkip');if(sk)sk.hidden=!(P.stuck&&!P.stuck.state&&P.stuck.tries>=2);
 }
 const say=(t,c)=>{P.msg=t;P.cls=c||'';updateHud();};
 const nextEv=()=>{while(P.ptr<P.events.length&&P.events[P.ptr].state)P.ptr++;return P.events[P.ptr];};
@@ -1193,6 +1282,7 @@ function resolve(e,tt){
       else P.nuOk++;
     }
   }
+  if(P.stuck===e)P.stuck=null;
   e.state='hit';e.rt=performance.now();P.hits++;P.combo++;if(P.combo>P.best)P.best=P.combo;
   P.score+=pts*(1+Math.min(3,Math.floor(P.combo/8)));
   e.n.forEach(m=>flash(m,'good'));say(msg,cls);
@@ -1281,7 +1371,7 @@ function endPlay(){
    '<div class="stars big" aria-label="'+stars+' étoiles sur 3">'+starsStr(stars)+'</div>'+
    '<div class="stats">'+stats+'</div>'+
    '<p>'+esc(advice(acc,P.mode,P.tempo,P.missBy,x))+'</p>'+
-   '<div class="row"><button class="btn pri" data-a="replay">Rejouer</button>'+(nxt&&stars>0?'<button class="btn" data-open="'+nxt.id+'">Morceau suivant</button>':'')+'<button class="btn" data-a="progress">Mon évolution</button><button class="btn" data-a="home">Accueil</button></div></div>';
+   (nxt&&stars>0?'<button class="btn pri big play" data-play="'+nxt.id+'">▶ Morceau suivant</button><div class="row"><button class="btn big" style="flex:1" data-a="replay">🔁 Rejouer</button><button class="btn big" style="flex:1" data-a="home">🏠 Accueil</button></div>':'<button class="btn pri big play" data-a="replay">🔁 Rejouer</button><div class="row"><button class="btn big" style="flex:1" data-a="home">🏠 Accueil</button></div>')+'<button class="btn" data-tab="progress">📈 Voir mon évolution</button></div>';
   show('result');
 }
 function endDemo(){
@@ -1455,7 +1545,7 @@ function connectMidi(auto){
 }
 
 /* ---------- Accords au micro : on écoute toutes les notes, pas seulement la première ---------- */
-const CW=3072,CW_HIT=0.2,CW_EXT=0.35,CW_HARM={19:0.8,31:0.8,28:0.6,34:0.45};
+const CW=3072,CW_HIT=0.2,CW_EXT=0.35,CW_HARM={19:0.8,31:0.8,28:0.6,34:0.45},CW_OWN=0.1,CW_RHO={12:0.6,19:0.7,24:0.5,28:0.4,31:0.35,34:0.3,36:0.25};
 /* Extrait récent du micro, ramené à ~12 kHz (CW échantillons) ; back = échantillons bruts ignorés à la fin */
 function grabWin(back){
   const m=mic;if(!m||!m.an2||!m.an2.getFloatTimeDomainData)return null;
@@ -1484,7 +1574,19 @@ function judgeChord(exp,A,B){
   const ref=Math.max(1e-9,A.best),expAll=new Set(exp.map(m=>m%12)),a=new Float32Array(12);
   for(let m=36;m<=96;m++)if(A.sal[m]>a[m%12])a[m%12]=A.sal[m];
   const chk=[...new Set(exp.filter(m=>m>=36&&m<=96).map(m=>m%12))];
-  const missing=chk.filter(pc=>!(a[pc]>=CW_HIT*ref));
+  /* Une touche attendue est-elle vraiment enfoncée ? Une octave ou une quinte au-dessus d'une autre touche sonne déjà dans le son de celle-ci
+     (harmonique) : on exige donc qu'elle soit plus forte que ce que la touche grave produit seule. Pour les basses (< Do3), on regarde l'énergie par note. */
+  const hiE=exp.filter(e=>e>=48&&e<=96),mx=Math.max(1e-9,...hiE.map(e=>A.a1[e])),missing=[];
+  for(const e of exp){
+    if(e<36||e>96)continue;
+    let ok;
+    if(e<48)ok=a[e%12]>=CW_HIT*ref;
+    else{
+      let hm=0;for(const q of exp)if(q<e&&q>=36&&CW_RHO[e-q])hm=Math.max(hm,CW_RHO[e-q]*A.a1[q]);
+      ok=A.a1[e]>=CW_OWN*mx&&A.a1[e]>=hm;
+    }
+    if(!ok&&missing.indexOf(e%12)<0)missing.push(e%12);
+  }
   const cands=[];
   for(let m=36;m<=96;m++)if(A.pk[m]&&A.sal[m]/ref>=CW_EXT&&!expAll.has(m%12))cands.push(m);
   cands.sort((p,q)=>A.sal[q]-A.sal[p]);
@@ -1525,14 +1627,18 @@ function finishChord(cw,j){
     P.wrong++;if(P.mode==='time')P.combo=0;
     j.extraM.forEach(m=>flash(m,'bad'));
     e.n.forEach(t=>{P.missBy[t]=(P.missBy[t]||0)+1;});
-    say('Une note en trop : '+names(j.extra)+'. Rejoue l\'accord sans elle.','bad');return;
+    P.stuck=e;say('Une note en trop : '+names(j.extra)+'. Rejoue l\'accord sans elle.','bad');return;
   }
-  const tol=e.n.length>=5?1:0;
-  if(j.missing.length>tol){
-    if(e.tries<2){say('Il manque : '+names(j.missing)+'. Rejoue tout l\'accord ensemble.','');return;}
-    acceptChord(cw,'Accord accepté : le micro n\'a pas bien entendu '+names(j.missing)+'.');return;
+  if(j.missing.length){
+    P.stuck=e;say('Il manque : '+names(j.missing)+'. L\'accord ne passe que si toutes ses touches sont jouées ensemble.','');return;
   }
   acceptChord(cw);
+}
+/* Bouton de secours : si le micro n'entend pas une touche, on peut passer l'accord (compté comme raté) */
+function skipChord(){
+  const e=P&&(P.stuck&&!P.stuck.state?P.stuck:null);if(!e)return;
+  e.state='miss';e.rt=performance.now();P.miss++;P.combo=0;P.stuck=null;P.chordWait=null;
+  say('Accord passé.','');
 }
 function runChord(jb){
   const cw=jb.cw;if(!P||P.chordWait!==cw)return;
@@ -1883,7 +1989,7 @@ async function beginPlay(p,t,m){
 }
 function favUI(el,on){
   el.setAttribute('aria-pressed',on);
-  if(el.classList.contains('favb'))el.textContent=on?'♥ Dans mes favoris':'♡ Ajouter aux favoris';
+  if(el.classList.contains('favb'))el.textContent=on?'♥ Favori':'♡ Favori';
   else{el.textContent=on?'♥':'♡';el.setAttribute('aria-label',on?'Retirer des favoris':'Ajouter aux favoris');}
 }
 function toggleFav(id){
@@ -1902,6 +2008,10 @@ function onAction(e){
     if(id==='__create'){renderCreate();show('create');return;}
     const p=pieceById(id);if(p){renderSetup(p);show('setup');}return;
   }
+  const tb=e.target.closest('[data-tab]');
+  if(tb){const t=tb.dataset.tab;if(t==='progress'){renderProgress();show('progress');}else{homeTab=t;renderHome();show('home');}return;}
+  const pl=e.target.closest('[data-play]');
+  if(pl){const p=pieceById(pl.dataset.play);if(p){setupPiece=p;const pr=prog[p.id]||{};beginPlay(p,pr.tempo||(profile&&profile.tempo)||70,pr.mode||(profile&&profile.mode)||'wait');}return;}
   const ct=e.target.closest('[data-cat]');if(ct){fCat=ct.dataset.cat;renderHome();return;}
   const hd=e.target.closest('[data-hand]');if(hd){fHand=+hd.dataset.hand;renderHome();return;}
   const lv=e.target.closest('[data-lvl]');if(lv){fLvl=+lv.dataset.lvl;renderHome();return;}
@@ -1934,6 +2044,7 @@ function onAction(e){
   else if(a==='start'){const t=+$('tempo').value,m=radioVal('mode')||'wait';beginPlay(setupPiece,t,m);}
   else if(a==='replay'){const pr=prog[setupPiece.id]||{};beginPlay(setupPiece,pr.tempo||80,pr.mode||'wait');}
   else if(a==='pause'&&P){P.paused=!P.paused;P.last=performance.now();b.textContent=P.paused?'Reprendre':'Pause';}
+  else if(a==='skipch')skipChord();
   else if(a==='quit')quitPlay();
   else if(a==='csave'){
     const title=$('cTitle').value.trim()||'Ma mélodie',bpm=Math.max(40,Math.min(160,+$('cBpm').value||80)),dsl=$('cNotes').value;
@@ -1956,7 +2067,8 @@ window.addEventListener('error',e=>{if(e&&e.message&&!/ResizeObserver/.test(e.me
 document.addEventListener('change',e=>{try{if(e.target&&e.target.id==='fUni'){fUni=e.target.value;renderHome();}}catch(err){recover(err);}});
 document.addEventListener('input',e=>{
   const t=e.target;if(!t)return;
-  if(t.id==='tempo'){const v=$('tempoV');if(v)v.textContent=t.value;}
+  if(t.id==='fQ'){fQ=t.value;renderLib();}
+  else if(t.id==='tempo'){const v=$('tempoV');if(v)v.textContent=t.value;}
   else if(t.classList&&t.classList.contains('mSens')){sens=+t.value;store.set('sens',sens);document.querySelectorAll('.mSens').forEach(x=>{x.value=sens;});}
 });
 $('tgMic').addEventListener('click',()=>{if(nMidi()>0){toast('Piano relié en MIDI : rien à activer, joue simplement.',3500);return;}if(micOn)stopMic();else startMic();});

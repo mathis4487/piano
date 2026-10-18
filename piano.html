@@ -1197,7 +1197,7 @@ const EMBED_MSG='Cette page est affichée dans une fenêtre intégrée (comme l\
 const localFile=location.protocol==='content:';
 const LOCAL_MSG='Chrome refuse le micro quand la page est ouverte depuis le gestionnaire de fichiers (adresse content://). Ouvre-la plutôt en tapant dans la barre d\'adresse de Chrome : file:///sdcard/Download/piano-ludique.html';
 let midiAccess=null,midiMsg='',midiBad=false,midiList=[];
-let micOn=false,mic=null,micMsg='',micBad=false,lastTxt='Aucune note entendue pour l\'instant.',sens=+store.get('sens',3)||3,nr=(v=>(v===0||v===1||v===2)?v:1)(+store.get('nr',1)),calib=null,calMsg='';
+let micOn=false,mic=null,micMsg='',micBad=false,lastTxt='Aucune note entendue pour l\'instant.',sens=+store.get('sens',3)||3,nr=(v=>(v===0||v===1||v===2)?v:1)(+store.get('nr',1)),exl=(v=>(v===0||v===1||v===2)?v:1)(+store.get('exl',1)),calib=null,calMsg='';
 const SENS={1:2,2:1.4,3:1,4:0.7,5:0.5};
 
 /* ---------- Vues ---------- */
@@ -1243,6 +1243,7 @@ function micBody(){
     h+='<div class="fld"><div class="row" style="justify-content:space-between"><span class="l">Ce que le micro entend</span><span class="mTxt" aria-live="polite"></span></div><div class="vel" aria-hidden="true"><span class="mLvl"></span><i class="mThr"></i></div><p class="pinfo">La barre rouge est le seuil : au-dessus, une note est détectée.</p></div>';
     h+='<div class="fld"><span class="l">Sensibilité : si ton piano n\'est pas détecté, monte-la</span><input class="range mSens" type="range" min="1" max="5" step="1" value="'+sens+'" aria-label="Sensibilité du micro"></div>';
     h+='<div class="fld"><span class="l">Anti-bruit : voix, pas, bruits de la pièce (0 = aucun, 2 = fort)</span><input class="range mNr" type="range" min="0" max="2" step="1" value="'+nr+'" aria-label="Réduction du bruit ambiant"><p class="pinfo">Les sons qui ne ressemblent pas à une touche de piano sont ignorés. Si une note douce est ratée, baisse-le.</p></div>';
+    h+='<div class="fld"><span class="l">Exigence des accords (0 = tolérant, 1 = normal, 2 = strict)</span><input class="range mEx" type="range" min="0" max="2" step="1" value="'+exl+'" aria-label="Exigence de validation des accords"><p class="pinfo">Un accord n\'est validé que si toutes ses touches sonnent. Si une touche pourtant jouée est refusée, baisse-le ; si un accord incomplet passe, monte-le.</p></div>';
     h+='<p class="pinfo mLast">'+esc(lastTxt)+'</p>';
     h+='<div class="row micrew"><button class="btn sm" data-a="calib">Calibrer : force et notes douces</button><span class="mCal pinfo" role="status">'+esc(calMsg)+'</span></div>';
   }
@@ -1349,7 +1350,7 @@ function homePlus(){
   }else h+='<p class="muted">Écris une mélodie avec les noms des notes : elle tombe sur le clavier et tu la joues.</p>';
   h+='<div class="row"><button class="btn pri" data-a="create">Créer un morceau</button></div></div>';
   h+='<div class="card"><h3>👤 Mon profil</h3><p class="muted">'+(profile&&profile.name?esc(profile.name)+' · ':'')+'objectif de '+((profile&&profile.min)||10)+' minutes par jour</p><div class="row"><button class="btn" data-a="profile">Modifier mon profil</button></div></div>';
-  h+='<p class="muted" style="text-align:center;font-size:.72rem">Version 32</p>';
+  h+='<p class="muted" style="text-align:center;font-size:.72rem">Version 33</p>';
   return h;
 }
 function renderHome(){
@@ -1942,7 +1943,7 @@ function connectMidi(auto){
 }
 
 /* ---------- Accords au micro : on écoute toutes les notes, pas seulement la première ---------- */
-const CW=3072,CW_HIT=0.2,CW_EXT=0.25,CW_EXT_A1=0.15,CW_BASS_A1=0.04,CW_HARM={19:0.8,31:0.8,28:0.45,34:0.45},CW_OWN=0.1,CW_RHO={12:0.6,19:0.7,24:0.5,28:0.4,31:0.35,34:0.3,36:0.25};
+const CW=3072,CW_HIT=0.2,CW_EXT=0.25,CW_EXT_A1=0.15,CW_BASS_A1=0.04,CW_OWNB=0.1,CW_HARM={19:0.8,31:0.8,28:0.45,34:0.45,38:0.5,40:0.5,42:0.45,43:0.5},CW_OWN=0.1,CW_RHO={12:0.6,19:0.6,24:0.5,28:0.45,31:0.35,34:0.5,36:0.35},CW_RHOB={12:0.5,19:0.8,24:0.95,28:0.9,31:0.8,34:0.95,36:0.75},EXF=[0.75,1,1.3];
 /* Extrait récent du micro, ramené à ~12 kHz (CW échantillons) ; back = échantillons bruts ignorés à la fin */
 function grabWin(back){
   const m=mic;if(!m||!m.an2||!m.an2.getFloatTimeDomainData)return null;
@@ -1952,50 +1953,61 @@ function grabWin(back){
   for(let i=0;i<CW;i++){let a=0;for(let k=0;k<f;k++)a+=m.buf2[from+i*f+k];o[i]=a/f;}
   return o;
 }
-/* Pour chaque demi-ton (Do2 à Do7) : fondamentale seule (a1), sommet net à cette fréquence (pk, sinon c'est l'épaule d'une touche voisine), énergie avec harmoniques (sal) */
+/* Pour chaque demi-ton (La0 à Do8) : fondamentale seule (a1), sommet net à cette fréquence (pk, sinon c'est l'épaule d'une touche voisine), énergie avec harmoniques (sal).
+   Les touches très graves (< Do2) sont presque toujours entendues par leurs harmoniques seulement (micro de téléphone, petit haut-parleur) : on y compte aussi les harmoniques 4 et 5. */
+const FS_LO=21,FS_HI=108;
 function fineSpec(x,sr){
   const W=x.length,b=new Float32Array(W);
   for(let i=0;i<W;i++)b[i]=x[i]*(0.5-0.5*Math.cos(2*Math.PI*i/(W-1)));
   const mag=f=>{const c=2*Math.cos(2*Math.PI*f/sr);let a=0,d=0;for(let i=0;i<W;i++){const t=b[i]+c*a-d;d=a;a=t;}return Math.sqrt(Math.max(0,a*a+d*d-c*a*d));};
-  const a1=new Float32Array(98),pk=new Uint8Array(98),sal=new Float32Array(98),q=Math.pow(2,1/24);let best=0;
-  for(let m=36;m<=96;m++){
+  const a1=new Float32Array(110),pk=new Uint8Array(110),sal=new Float32Array(110),q=Math.pow(2,1/24);let best=0;
+  for(let m=FS_LO;m<=FS_HI;m++){
     const f0=440*Math.pow(2,(m-69)/12),p0=mag(f0);a1[m]=p0;
     pk[m]=(p0>mag(f0/q)&&p0>mag(f0*q))?1:0;
     let v=p0;if(f0*2<sr/2)v+=0.6*mag(2*f0);if(f0*3<sr/2)v+=0.3*mag(3*f0);
-    sal[m]=v;if(v>best)best=v;
+    if(m<36){if(f0*4<sr/2)v+=0.3*mag(4*f0);if(f0*5<sr/2)v+=0.2*mag(5*f0);}
+    sal[m]=v;if(m>=36&&m<=96&&v>best)best=v; /* best : référence de niveau Do2–Do7 (les extrêmes n'y comptent pas) */
   }
   return {a1,pk,sal,best};
 }
 /* exp : notes attendues ; A : après l'attaque ; B : juste avant (ce qui sonnait déjà) */
 function judgeChord(exp,A,B,rise){
-  const ref=Math.max(1e-9,A.best),expAll=new Set(exp.map(m=>m%12)),a=new Float32Array(12);
-  for(let m=36;m<=96;m++)if(A.sal[m]>a[m%12])a[m%12]=A.sal[m];
-  const chk=[...new Set(exp.filter(m=>m>=36&&m<=96).map(m=>m%12))];
-  /* Une touche attendue est-elle vraiment enfoncée ? Une octave ou une quinte au-dessus d'une autre touche sonne déjà dans le son de celle-ci
-     (harmonique) : on exige donc qu'elle soit plus forte que ce que la touche grave produit seule. Pour les basses (< Do3), on regarde l'énergie par note. */
-  const hiE=exp.filter(e=>e>=48&&e<=96),mx=Math.max(1e-9,...hiE.map(e=>A.a1[e])),missing=[],okpc=new Set(),bad=[];
+  const EX=EXF[exl]||1;
+  let ref=Math.max(1e-9,A.best);for(const e of exp)if(e>=FS_LO&&e<=FS_HI&&A.sal[e]>ref)ref=A.sal[e];
+  const expAll=new Set(exp.map(m=>m%12)),a=new Float32Array(12);
+  for(let m=FS_LO;m<=FS_HI;m++)if(A.sal[m]>a[m%12])a[m%12]=A.sal[m];
+  const chk=[...new Set(exp.filter(m=>m>=FS_LO&&m<=FS_HI).map(m=>m%12))];
+  /* Une touche attendue est-elle vraiment enfoncée ? Chaque touche doit sonner PAR ELLE-MÊME : une octave, une quinte ou une douzième au-dessus d'une autre touche
+     sonne déjà dans le son de celle-ci (harmonique) ; on exige donc qu'elle soit nettement plus forte que ce que la touche grave produit seule.
+     Pour les basses (< Do3), dont la fondamentale est faible au micro, on compare avec l'énergie totale (harmoniques comprises) de la touche grave. */
+  const hiE=exp.filter(e=>e>=48&&e<=FS_HI),mx=Math.max(1e-9,...hiE.map(e=>A.a1[e])),missing=[];
   for(const e of exp){
-    if(e<36||e>96)continue;
+    if(e<FS_LO||e>FS_HI)continue;
     let ok;
-    /* graves : la note elle-même doit sonner (son fondamental), pas seulement les harmoniques d'autres touches — exigé dès qu'il y a plusieurs notes à jouer */
-    if(e<48)ok=a[e%12]>=CW_HIT*ref&&(exp.length<2||A.a1[e]>=CW_BASS_A1*ref);
-    else{
-      let hm=0;for(const q of exp)if(q<e&&q>=36&&CW_RHO[e-q])hm=Math.max(hm,CW_RHO[e-q]*A.a1[q]);
-      ok=A.a1[e]>=CW_OWN*mx&&A.a1[e]>=hm;
+    const lows=exp.filter(q=>q<e&&q>=FS_LO);
+    if(e<48){
+      ok=a[e%12]>=CW_HIT*ref;
+      if(ok&&exp.length>=2&&e>=36)ok=A.a1[e]>=CW_BASS_A1*ref; /* graves : la note elle-même doit sonner, pas seulement les harmoniques d'autres touches */
+      if(ok&&lows.length){let hm=0;for(const q of lows){const r=CW_RHOB[e-q];if(r)hm=Math.max(hm,Math.min(1.15,r*EX)*A.sal[q]);}ok=A.sal[e]>=hm;}
+    }else{
+      let hm=0;
+      for(const q of lows){
+        if(q>=48){const r=CW_RHO[e-q];if(r)hm=Math.max(hm,r*EX*A.a1[q]);}
+        else{const r=CW_RHOB[e-q];if(r)hm=Math.max(hm,Math.min(1.15,r*EX)*A.sal[q]);}
+      }
+      ok=A.a1[e]>=CW_OWN*mx&&A.a1[e]>=hm&&A.a1[e]>=CW_OWNB*EX*ref;
     }
     if(ok&&rise&&B&&!(A.sal[e]>=1.08*B.sal[e]))ok=false; /* note seule : ce qui sonnait déjà avant l'attaque ne compte pas */
-    if(ok)okpc.add(e%12);else bad.push(e);
+    if(!ok&&missing.indexOf(e%12)<0)missing.push(e%12);
   }
-  /* la correspondance se fait par nom de note : une touche doublée à l'octave compte comme présente si l'une des deux sonne */
-  for(const e of bad)if(!okpc.has(e%12)&&missing.indexOf(e%12)<0)missing.push(e%12);
   const cands=[];
   for(let m=36;m<=96;m++)if(A.pk[m]&&A.sal[m]/ref>=CW_EXT&&A.a1[m]>=CW_EXT_A1*ref&&!expAll.has(m%12))cands.push(m);
   cands.sort((p,q)=>A.sal[q]-A.sal[p]);
   const extraM=[];
   for(const m of cands){
     let harm=false;
-    const lows=exp.filter(e=>e<m&&e>=36).concat(extraM.filter(e=>e<m));
-    for(const q of lows){const lim=CW_HARM[m-q];if(lim&&A.a1[m]<lim*A.sal[q]){harm=true;break;}}
+    const lows=exp.filter(e=>e<m&&e>=FS_LO).concat(extraM.filter(e=>e<m));
+    for(const q of lows){const lim=CW_HARM[m-q];if(lim&&A.a1[m]<lim*(q<36?2.5:1)*A.sal[q]){harm=true;break;}} /* touches très graves : leurs harmoniques dépassent souvent la fondamentale */
     if(harm)continue;
     if(B&&!(A.a1[m]>=1.5*B.a1[m]))continue; /* déjà en train de sonner avant : pas une nouvelle touche */
     extraM.push(m);
@@ -2012,7 +2024,7 @@ function monoNew(A,B){
   let best=-1,bs=0;
   for(let m=36;m<=96;m++){
     if(n[m]<0.25*mx)continue;
-    const sc=n[m]+0.6*n[m+12]+0.3*n[m+19]+0.2*n[m+24];
+    const sc=n[m]+0.6*(n[m+12]||0)+0.3*(n[m+19]||0)+0.2*(n[m+24]||0);
     if(sc>bs){bs=sc;best=m;}
   }
   return best>0?best:null;
@@ -2044,7 +2056,7 @@ function finishSingle(cw,A,B){
   for(const e of cands){
     const j=judgeChord(e.n,A,B,true),x=e.n[0];
     /* la bonne touche est là et vient d'être frappée : un « intrus » faible (résonance d'une autre note) ne la fait pas refuser */
-    if(!j.missing.length&&(!j.extra.length||!j.extraM.some(m=>A.a1[m]>=0.5*A.a1[x]))){cw.e=e;acceptChord(cw);return;}
+    if(!j.missing.length&&(!j.extra.length||!j.extraM.some(m=>A.a1[m]>=0.5*(x<36?A.sal[x]:A.a1[x])))){cw.e=e;acceptChord(cw);return;}
     if(!first)first={e,j};
   }
   if(!first)return;
@@ -2605,6 +2617,7 @@ document.addEventListener('input',e=>{
   if(t.id==='fQ'){fQ=t.value;renderLib();}
   else if(t.id==='tempo'){const v=$('tempoV');if(v)v.textContent=t.value;}
   else if(t.classList&&t.classList.contains('mNr')){nr=+t.value;store.set('nr',nr);document.querySelectorAll('.mNr').forEach(x=>{x.value=nr;});}
+  else if(t.classList&&t.classList.contains('mEx')){exl=+t.value;store.set('exl',exl);document.querySelectorAll('.mEx').forEach(x=>{x.value=exl;});}
   else if(t.classList&&t.classList.contains('mSens')){sens=+t.value;store.set('sens',sens);document.querySelectorAll('.mSens').forEach(x=>{x.value=sens;});}
 });
 $('tgMic').addEventListener('click',()=>{if(nMidi()>0){toast('Piano relié en MIDI : rien à activer, joue simplement.',3500);return;}if(micOn)stopMic();else startMic();});

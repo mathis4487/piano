@@ -1349,7 +1349,7 @@ function homePlus(){
   }else h+='<p class="muted">Écris une mélodie avec les noms des notes : elle tombe sur le clavier et tu la joues.</p>';
   h+='<div class="row"><button class="btn pri" data-a="create">Créer un morceau</button></div></div>';
   h+='<div class="card"><h3>👤 Mon profil</h3><p class="muted">'+(profile&&profile.name?esc(profile.name)+' · ':'')+'objectif de '+((profile&&profile.min)||10)+' minutes par jour</p><div class="row"><button class="btn" data-a="profile">Modifier mon profil</button></div></div>';
-  h+='<p class="muted" style="text-align:center;font-size:.72rem">Version 31</p>';
+  h+='<p class="muted" style="text-align:center;font-size:.72rem">Version 32</p>';
   return h;
 }
 function renderHome(){
@@ -1942,7 +1942,7 @@ function connectMidi(auto){
 }
 
 /* ---------- Accords au micro : on écoute toutes les notes, pas seulement la première ---------- */
-const CW=3072,CW_HIT=0.2,CW_EXT=0.35,CW_HARM={19:0.8,31:0.8,28:0.6,34:0.45},CW_OWN=0.1,CW_RHO={12:0.6,19:0.7,24:0.5,28:0.4,31:0.35,34:0.3,36:0.25};
+const CW=3072,CW_HIT=0.2,CW_EXT=0.25,CW_EXT_A1=0.15,CW_BASS_A1=0.04,CW_HARM={19:0.8,31:0.8,28:0.45,34:0.45},CW_OWN=0.1,CW_RHO={12:0.6,19:0.7,24:0.5,28:0.4,31:0.35,34:0.3,36:0.25};
 /* Extrait récent du micro, ramené à ~12 kHz (CW échantillons) ; back = échantillons bruts ignorés à la fin */
 function grabWin(back){
   const m=mic;if(!m||!m.an2||!m.an2.getFloatTimeDomainData)return null;
@@ -1973,20 +1973,23 @@ function judgeChord(exp,A,B,rise){
   const chk=[...new Set(exp.filter(m=>m>=36&&m<=96).map(m=>m%12))];
   /* Une touche attendue est-elle vraiment enfoncée ? Une octave ou une quinte au-dessus d'une autre touche sonne déjà dans le son de celle-ci
      (harmonique) : on exige donc qu'elle soit plus forte que ce que la touche grave produit seule. Pour les basses (< Do3), on regarde l'énergie par note. */
-  const hiE=exp.filter(e=>e>=48&&e<=96),mx=Math.max(1e-9,...hiE.map(e=>A.a1[e])),missing=[];
+  const hiE=exp.filter(e=>e>=48&&e<=96),mx=Math.max(1e-9,...hiE.map(e=>A.a1[e])),missing=[],okpc=new Set(),bad=[];
   for(const e of exp){
     if(e<36||e>96)continue;
     let ok;
-    if(e<48)ok=a[e%12]>=CW_HIT*ref;
+    /* graves : la note elle-même doit sonner (son fondamental), pas seulement les harmoniques d'autres touches — exigé dès qu'il y a plusieurs notes à jouer */
+    if(e<48)ok=a[e%12]>=CW_HIT*ref&&(exp.length<2||A.a1[e]>=CW_BASS_A1*ref);
     else{
       let hm=0;for(const q of exp)if(q<e&&q>=36&&CW_RHO[e-q])hm=Math.max(hm,CW_RHO[e-q]*A.a1[q]);
       ok=A.a1[e]>=CW_OWN*mx&&A.a1[e]>=hm;
     }
     if(ok&&rise&&B&&!(A.sal[e]>=1.08*B.sal[e]))ok=false; /* note seule : ce qui sonnait déjà avant l'attaque ne compte pas */
-    if(!ok&&missing.indexOf(e%12)<0)missing.push(e%12);
+    if(ok)okpc.add(e%12);else bad.push(e);
   }
+  /* la correspondance se fait par nom de note : une touche doublée à l'octave compte comme présente si l'une des deux sonne */
+  for(const e of bad)if(!okpc.has(e%12)&&missing.indexOf(e%12)<0)missing.push(e%12);
   const cands=[];
-  for(let m=36;m<=96;m++)if(A.pk[m]&&A.sal[m]/ref>=CW_EXT&&!expAll.has(m%12))cands.push(m);
+  for(let m=36;m<=96;m++)if(A.pk[m]&&A.sal[m]/ref>=CW_EXT&&A.a1[m]>=CW_EXT_A1*ref&&!expAll.has(m%12))cands.push(m);
   cands.sort((p,q)=>A.sal[q]-A.sal[p]);
   const extraM=[];
   for(const m of cands){
@@ -2097,9 +2100,10 @@ function runChord(jb){
   P.chordWait=null;
   if(P.paused||!P.running||cw.e.state)return;
   const post=grabWin(0);
-  if(!post){if(cw.single){const t=(cw.cands||[cw.e])[0];if(t&&!t.state){cw.e=t;acceptChord(cw);}}else acceptChord(cw);return;}
+  /* jamais de validation « par défaut » : si l'écoute n'a rien donné, l'accord n'est pas validé */
+  if(!post){if(!cw.single){cw.e.tries=(cw.e.tries||0)+1;P.stuck=cw.e;say('Je n\'ai pas bien entendu l\'accord : rejoue-le, toutes les touches ensemble.','');}return;}
   const A=fineSpec(post,mic.sd),B=jb.pre?fineSpec(jb.pre,mic.sd):null;
-  if(A.best<=0){if(cw.single)return;acceptChord(cw);return;}
+  if(A.best<=0){if(!cw.single){cw.e.tries=(cw.e.tries||0)+1;P.stuck=cw.e;say('Je n\'ai pas bien entendu l\'accord : rejoue-le, toutes les touches ensemble.','');}return;}
   if(cw.single){finishSingle(cw,A,B);return;}
   finishChord(cw,judgeChord(cw.e.n,A,B));
 }
@@ -2167,13 +2171,13 @@ function gateFeat(x,ti,sr,f){
   const rmsOf=s=>{let e=0;for(let i=0;i<s.length;i++)e+=s[i]*s[i];return Math.sqrt(e/Math.max(1,s.length));};
   const sp=(a,b)=>{const s=seg(a,b),L=s.length,re=new Float32Array(nf),im=new Float32Array(nf);for(let i=0;i<L;i++)re[i]=s[i]*(0.5-0.5*Math.cos(2*Math.PI*i/(L-1)));fftMag(re,im);
     const lo=Math.ceil(100*nf/sd),hi=Math.floor(3500*nf/sd),o=new Float32Array(hi-lo);let q=0;for(let k=lo;k<hi;k++){const v=Math.hypot(re[k],im[k]);o[k-lo]=v;q+=v*v;}q=Math.sqrt(q)+1e-12;for(let k=0;k<o.length;k++)o[k]/=q;return o;};
-  const A=sp(0.03,0.11),B=sp(0.11,0.19);let st=0,nov=0;
-  for(let k=0;k<A.length;k++){st+=A[k]*B[k];const d=B[k]-A[k];if(d>0)nov+=d*d;}
+  const A=sp(0.03,0.11),B=sp(0.11,0.19),lo0=Math.ceil(100*nf/sd);let st=0,nov=0,bi=0;
+  for(let k=0;k<A.length;k++){st+=A[k]*B[k];const d=B[k]-A[k];if(d>0)nov+=d*d;if(B[k]>B[bi])bi=k;}
   const e0=rmsOf(seg(0,0.1)),e1=rmsOf(seg(0.09,0.19));
-  return {stat:st,nov:nov,dec:e1/(e0+1e-9)};
+  return {stat:st,nov:nov,dec:e1/(e0+1e-9),fd:(bi+lo0)*sd/nf};
 }
 /* Anti-bruit : une attaque n'est acceptée que si son spectre ne change pas pendant ~0,2 s (piano). Voix, pas, claquements : spectre qui bouge ou son qui s'éteint tout de suite. [stabilité min, nouveauté max, décroissance min] */
-const NR_T={1:[0.90,0.08,0.55],2:[0.95,0.05,0.60]},NR_BACK=0.2;
+const NR_T={1:[0.90,0.08,0.55,0.10],2:[0.95,0.05,0.60,0.10]},NR_BACK=0.2; /* [stabilité min, nouveauté max, décroissance min (graves/médiums), décroissance min (aigus > 1,2 kHz : ils s'éteignent vite)] */
 function gateCheck(p,now){
   const m=mic;if(!m||!m.an2||!m.an2.getFloatTimeDomainData||!m.buf2)return {ok:true};
   try{
@@ -2181,7 +2185,7 @@ function gateCheck(p,now){
     const n=m.buf2.length,back=(now-(p.at+50))/1000,ti=Math.round(n-back*m.sr);
     if(ti<0||ti+Math.round(0.19*m.sr)>n-2)return {ok:true};
     const g=gateFeat(m.buf2,ti,m.sr,m.f),T=NR_T[nr]||NR_T[1];
-    return {ok:g.stat>=T[0]&&g.nov<=T[1]&&g.dec>=T[2],g};
+    return {ok:g.stat>=T[0]&&g.nov<=T[1]&&g.dec>=(g.fd>1200?T[3]:T[2]),g};
   }catch(e){return {ok:true};}
 }
 function micThr(floor){
@@ -2211,6 +2215,11 @@ function micTick(){
     if(nr>0&&!p.gated&&!calib){
       if((now-(p.at+50))/1000<NR_BACK){micUi(rms,thr,'Analyse…');return;}
       const gc=gateCheck(p,now);
+      if(!gc.ok){
+        /* Une note seule est attendue et ce son a exactement sa hauteur, nette : on ne le jette pas (touches très graves ou très aiguës, cordes qui battent) */
+        const tg0=singleTarget(now),r0=tg0?detectPitch(b,mic.sr):null;
+        if(r0&&r0.clarity>=0.85&&r0.f>=27&&r0.f<=4200){const m0=Math.round(69+12*Math.log2(r0.f/440));if(tg0.some(e=>matches(m0,e.n[0])))gc.ok=true;}
+      }
       if(!gc.ok){mic.pend=null;mic.hold=now+150;mic.nrN=(mic.nrN||0)+1;mic.msg='Bruit ignoré (voix, pas…) : ce n\'est pas une touche de piano.';mic.msgUntil=now+1500;micUi(rms,thr,mic.msg);return;}
       p.gated=true;
     }

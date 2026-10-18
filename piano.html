@@ -102,6 +102,11 @@ p{margin:0}
 .opt span{display:block}
 .opt small{color:var(--muted);display:block}
 .range{width:100%;accent-color:var(--accent)}
+.spdGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px}
+.spdChip{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px;line-height:1.15;white-space:normal;text-align:center}
+.spdChip small{opacity:.8;font-weight:600}
+.spdRow{align-items:center;justify-content:space-between;flex-wrap:nowrap}
+.spdRow .count{font-size:.95rem;text-align:center}
 
 .hud{display:flex;flex-direction:column;gap:10px}
 .hud .top2{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
@@ -1350,7 +1355,7 @@ function homePlus(){
   }else h+='<p class="muted">Écris une mélodie avec les noms des notes : elle tombe sur le clavier et tu la joues.</p>';
   h+='<div class="row"><button class="btn pri" data-a="create">Créer un morceau</button></div></div>';
   h+='<div class="card"><h3>👤 Mon profil</h3><p class="muted">'+(profile&&profile.name?esc(profile.name)+' · ':'')+'objectif de '+((profile&&profile.min)||10)+' minutes par jour</p><div class="row"><button class="btn" data-a="profile">Modifier mon profil</button></div></div>';
-  h+='<p class="muted" style="text-align:center;font-size:.72rem">Version 33</p>';
+  h+='<p class="muted" style="text-align:center;font-size:.72rem">Version 34</p>';
   return h;
 }
 function renderHome(){
@@ -1513,11 +1518,12 @@ function renderSetup(p){
   if(E.events&&E.events.length<=10){h+='<div class="scroll">'+kbSvg(E.events)+'</div>';}
   if(p.tip)h+='<p class="muted">'+esc(p.tip)+'</p>';
   h+='<p class="meta"><span class="stars">'+starsStr(pr.stars||0)+'</span> · '+(pr.plays?Math.round(pr.acc*100)+' %':'pas encore joué')+' · '+(E.events?E.events.length:0)+' notes · <span style="color:var(--accent)">'+dots(p.lvl||1)+'</span></p>';
+  h+='<div class="fld spdBox"><span class="l">Vitesse de jeu</span><div class="spdGrid">'+SPD.map(l=>'<button class="btn sm chip spdChip" data-sp="'+l[0]+'" aria-pressed="'+(tempo===l[0])+'"><span>'+l[2]+' '+l[1]+'</span><small>'+l[0]+' %</small></button>').join('')+'</div></div>';
   h+='<button class="btn pri big play pulse" data-a="start">▶ Jouer</button>';
   h+='<p class="pinfo" style="text-align:center">'+(nMidi()?'🎹 Piano relié (MIDI)':micOn?'🎤 Micro actif':'🎤 Le micro s\'active quand tu touches « Jouer »')+'</p>';
   h+='<div class="row"><button class="btn big" style="flex:1" data-a="demo">👂 Écouter</button>'+(E.events?'<button class="btn big" style="flex:1" data-a="sheet">📄 Les notes</button>':'')+'</div>';
-  h+='<details class="dd2"><summary>⚙️ Vitesse '+tempo+' % · '+(mode==='time'?'En rythme':'J\'attends mes notes')+'</summary><div class="ddin">'+
-     '<div class="fld"><label class="l" for="tempo">Vitesse : <span id="tempoV">'+tempo+'</span> %</label><input class="range" type="range" id="tempo" min="40" max="120" step="5" value="'+tempo+'"></div>'+
+  h+='<details class="dd2"><summary id="spdSum">⚙️ Réglage fin · '+tempo+' % · '+(mode==='time'?'En rythme':'J\'attends mes notes')+'</summary><div class="ddin">'+
+     '<div class="fld"><label class="l" for="tempo">Vitesse : <span id="tempoV">'+tempo+'</span> %</label><input class="range" type="range" id="tempo" min="30" max="150" step="5" value="'+tempo+'"></div>'+
      '<div class="fld"><span class="l">Mode de jeu</span>'+
       '<label class="opt"><input type="radio" name="mode" value="wait"'+(mode==='wait'?' checked':'')+'><span><b>J\'attends mes notes</b><small>Les notes attendent que tu joues la bonne.</small></span></label>'+
       '<label class="opt"><input type="radio" name="mode" value="time"'+(mode==='time'?' checked':'')+'><span><b>En rythme</b><small>Les notes ne s\'arrêtent pas.</small></span></label></div></div></details></div>';
@@ -1561,11 +1567,11 @@ function startPlay(p,tempo,mode){
 function stopLoop(){if(P&&P.raf)cancelAnimationFrame(P.raf);if(P)P.running=false;}
 function renderPlay(){
   if(P.mode==='demo'){
-    $('v-play').innerHTML='<div class="hud"><div class="top2"><div><div class="eyebrow">Démonstration · '+P.tempo+' %</div><h3>'+esc(P.piece.title)+'</h3></div><div class="row"><button class="btn sm" data-a="pause" id="bPause">Pause</button><button class="btn sm" data-a="quit">Arrêter</button></div></div><div class="bar"><span id="pbar"></span></div><p class="muted">Regarde les notes tomber et écoute : chaque note se joue quand elle touche la ligne.</p><div class="pmsg" id="pmsg"></div></div>';
+    $('v-play').innerHTML='<div class="hud"><div class="top2"><div><div class="eyebrow">Démonstration</div><h3>'+esc(P.piece.title)+'</h3></div><div class="row"><button class="btn sm" data-a="pause" id="bPause">Pause</button><button class="btn sm" data-a="quit">Arrêter</button></div></div><div class="row spdRow"><button class="btn sm" data-a="spdm">➖ Plus lent</button><span class="count" id="pspd">'+spdLabel(P.tempo)+'</span><button class="btn sm" data-a="spdp">Plus vite ➕</button></div><div class="bar"><span id="pbar"></span></div><p class="muted">Regarde les notes tomber et écoute : chaque note se joue quand elle touche la ligne.</p><div class="pmsg" id="pmsg"></div></div>';
     updateHud();return;
   }
-  $('v-play').innerHTML='<div class="hud"><div class="top2"><div><div class="eyebrow">'+(P.mode==='wait'?'Mode j\'attends mes notes':'Mode en rythme')+' · '+P.tempo+' %</div><h3>'+esc(P.piece.title)+'</h3></div><div class="row"><button class="btn sm" data-a="pause" id="bPause">Pause</button><button class="btn sm" data-a="quit">Quitter</button></div></div>'+
-    '<div class="row"><button class="btn sm" data-a="skipch" id="bSkip" hidden>Passer cet accord</button></div><div class="bar"><span id="pbar"></span></div><div class="row" style="justify-content:space-between"><span class="count" id="pscore"></span><span class="count" id="pcombo"></span></div>'+
+  $('v-play').innerHTML='<div class="hud"><div class="top2"><div><div class="eyebrow">'+(P.mode==='wait'?'Mode j\'attends mes notes':'Mode en rythme')+'</div><h3>'+esc(P.piece.title)+'</h3></div><div class="row"><button class="btn sm" data-a="pause" id="bPause">Pause</button><button class="btn sm" data-a="quit">Quitter</button></div></div>'+
+    '<div class="row spdRow"><button class="btn sm" data-a="spdm">➖ Plus lent</button><span class="count" id="pspd">'+spdLabel(P.tempo)+'</span><button class="btn sm" data-a="spdp">Plus vite ➕</button></div><div class="row"><button class="btn sm" data-a="skipch" id="bSkip" hidden>Passer cet accord</button></div><div class="bar"><span id="pbar"></span></div><div class="row" style="justify-content:space-between"><span class="count" id="pscore"></span><span class="count" id="pcombo"></span></div>'+
     '<div class="mm"><span>Force</span><div class="vel" aria-hidden="true"><span id="pvel"></span></div>'+(nMidi()?'<span>Piano relié (MIDI)</span>':'<span>Micro</span><div class="vel" aria-hidden="true"><span class="mLvl"></span><i class="mThr"></i></div>')+'</div><div class="pinfo" id="pinfo" aria-live="polite"></div><div class="pmsg" id="pmsg" role="status" aria-live="polite"></div></div>';
   updateHud();
 }
@@ -1730,15 +1736,25 @@ function handlePlay(m,vel,at,src){
   if(e.got.length===e.n.length){P.lastRes={e,at};resolve(e,tt);}else{flash(m,'good');say('Il manque une note de l\'accord.','good');}
 }
 
+/* Niveaux de vitesse */
+const SPD=[[40,'Très lent','🐢'],[60,'Lent','🚶'],[80,'Moyen','🙂'],[100,'Normal','🎵'],[120,'Rapide','🏃'],[150,'Très rapide','🚀']];
+const spdLv=v=>{let r=null;for(const l of SPD)if(l[0]===v)r=l;return r;};
+const spdLabel=v=>{const l=spdLv(v);return l?l[2]+' '+l[1]+' · '+v+' %':'Vitesse '+v+' %';};
+const spdNext=(v,d)=>{if(d>0){for(const l of SPD)if(l[0]>v)return l[0];return null;}let r=null;for(const l of SPD)if(l[0]<v)r=l[0];return r;};
+function syncSpd(){
+  const tp=$('tempo');if(!tp)return;const v=+tp.value;
+  document.querySelectorAll('.spdChip').forEach(c=>c.setAttribute('aria-pressed',String(+c.dataset.sp===v)));
+  const sm=$('spdSum');if(sm){const m=radioVal('mode')||'wait';sm.textContent='⚙️ Réglage fin · '+v+' % · '+(m==='time'?'En rythme':'J\'attends mes notes');}
+}
 function advice(acc,mode,tempo,missBy,x){
   const worst=Object.keys(missBy).sort((a,b)=>missBy[b]-missBy[a]).slice(0,2).map(m=>nm(+m));
   let t='';
   if(acc>=0.92){
     if(mode==='wait')t='Très propre. Passe en mode « En rythme » pour travailler le tempo.';
-    else if(tempo<100)t='Excellent. Monte la vitesse à '+Math.min(120,tempo+10)+' %.';
+    else if(spdNext(tempo,1))t='Excellent. Passe au niveau supérieur : '+spdLabel(spdNext(tempo,1))+'.';
     else t='Morceau maîtrisé à pleine vitesse. Passe au suivant.';
   }else if(acc>=0.7)t='Bonne base. Refais-le à la même vitesse pour le rendre fluide.';
-  else t=mode==='time'?'Ralentis à '+Math.max(40,tempo-15)+' % ou passe en mode « J\'attends mes notes ».':'Ralentis à '+Math.max(40,tempo-15)+' % et rejoue, une phrase à la fois.';
+  else {const lo=spdNext(tempo,-1);t=mode==='time'?'Ralentis'+(lo?' ('+spdLabel(lo)+')':'')+' ou passe en mode « J\'attends mes notes ».':'Ralentis'+(lo?' ('+spdLabel(lo)+')':'')+' et rejoue, une phrase à la fois.';}
   if(worst.length&&acc<0.97)t+=' Tu hésites surtout sur '+worst.join(' et ')+'.';
   if(x.durN>=4&&x.durOk/x.durN<0.6)t+=x.durShort>=x.durLong?' Tu relâches souvent trop tôt : garde la touche enfoncée jusqu\'à la fin de la valeur de la note, en comptant à voix haute.':' Tu gardes les touches trop longtemps : relâche dès que la durée est écoulée.';
   if(x.nuN>=3&&x.nuOk/x.nuN<0.6)t+=' Les nuances sont à travailler : p = doux, f = fort.';
@@ -1769,6 +1785,7 @@ function endPlay(){
    '<div class="stars big" aria-label="'+stars+' étoiles sur 3">'+starsStr(stars)+'</div>'+
    '<div class="stats">'+stats+'</div>'+
    '<p>'+esc(advice(acc,P.mode,P.tempo,P.missBy,x))+'</p>'+
+   (()=>{const up=acc>=0.9?spdNext(P.tempo,1):null,dn=acc<0.6?spdNext(P.tempo,-1):null;return up?'<button class="btn big" data-a="replayv" data-v="'+up+'">🚀 Rejouer plus vite · '+esc(spdLabel(up))+'</button>':dn?'<button class="btn big" data-a="replayv" data-v="'+dn+'">🐢 Rejouer plus lentement · '+esc(spdLabel(dn))+'</button>':'';})()+
    (nxt&&stars>0?'<button class="btn pri big play" data-play="'+nxt.id+'">▶ Morceau suivant</button><div class="row"><button class="btn big" style="flex:1" data-a="replay">🔁 Rejouer</button><button class="btn big" style="flex:1" data-a="home">🏠 Accueil</button></div>':'<button class="btn pri big play" data-a="replay">🔁 Rejouer</button><div class="row"><button class="btn big" style="flex:1" data-a="home">🏠 Accueil</button></div>')+'<button class="btn" data-tab="progress">📈 Voir mon évolution</button></div>';
   show('result');
 }
@@ -2556,6 +2573,7 @@ function onAction(e){
   }
   const tb=e.target.closest('[data-tab]');
   if(tb){const t=tb.dataset.tab;if(t==='progress'){renderProgress();show('progress');}else{homeTab=t;renderHome();show('home');}return;}
+  const sp=e.target.closest('[data-sp]');if(sp){const tp=$('tempo');if(tp){tp.value=sp.dataset.sp;const v=$('tempoV');if(v)v.textContent=tp.value;syncSpd();}return;}
   const pl=e.target.closest('[data-play]');
   if(pl){const p=pieceById(pl.dataset.play);if(p){setupPiece=p;const pr=prog[p.id]||{};beginPlay(p,pr.tempo||(profile&&profile.tempo)||70,pr.mode||(profile&&profile.mode)||'wait');}return;}
   const ct=e.target.closest('[data-cat]');if(ct){fCat=ct.dataset.cat;renderHome();return;}
@@ -2590,6 +2608,8 @@ function onAction(e){
   }
   else if(a==='start'){const t=+$('tempo').value,m=radioVal('mode')||'wait';beginPlay(setupPiece,t,m);}
   else if(a==='replay'){const pr=prog[setupPiece.id]||{};beginPlay(setupPiece,pr.tempo||80,pr.mode||'wait');}
+  else if((a==='spdm'||a==='spdp')&&P){const nv=spdNext(P.tempo,a==='spdp'?1:-1);if(nv){P.tempo=nv;const el=$('pspd');if(el)el.textContent=spdLabel(nv);}}
+  else if(a==='replayv'){const pr=prog[setupPiece.id]||{};beginPlay(setupPiece,+b.dataset.v,pr.mode||'wait');}
   else if(a==='pause'&&P){P.paused=!P.paused;P.last=performance.now();b.textContent=P.paused?'Reprendre':'Pause';}
   else if(a==='skipch')skipChord();
   else if(a==='quit')quitPlay();
@@ -2611,11 +2631,11 @@ function recover(err){
 }
 document.addEventListener('click',e=>{try{onAction(e);}catch(err){recover(err);}});
 window.addEventListener('error',e=>{if(e&&e.message&&!/ResizeObserver/.test(e.message))toast('Petit souci : '+e.message,7000);});
-document.addEventListener('change',e=>{try{if(e.target&&e.target.id==='fUni'){fUni=e.target.value;renderHome();}}catch(err){recover(err);}});
+document.addEventListener('change',e=>{try{if(e.target&&e.target.name==='mode')syncSpd();if(e.target&&e.target.id==='fUni'){fUni=e.target.value;renderHome();}}catch(err){recover(err);}});
 document.addEventListener('input',e=>{
   const t=e.target;if(!t)return;
   if(t.id==='fQ'){fQ=t.value;renderLib();}
-  else if(t.id==='tempo'){const v=$('tempoV');if(v)v.textContent=t.value;}
+  else if(t.id==='tempo'){const v=$('tempoV');if(v)v.textContent=t.value;syncSpd();}
   else if(t.classList&&t.classList.contains('mNr')){nr=+t.value;store.set('nr',nr);document.querySelectorAll('.mNr').forEach(x=>{x.value=nr;});}
   else if(t.classList&&t.classList.contains('mEx')){exl=+t.value;store.set('exl',exl);document.querySelectorAll('.mEx').forEach(x=>{x.value=exl;});}
   else if(t.classList&&t.classList.contains('mSens')){sens=+t.value;store.set('sens',sens);document.querySelectorAll('.mSens').forEach(x=>{x.value=sens;});}
